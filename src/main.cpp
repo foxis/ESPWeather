@@ -12,8 +12,7 @@
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <DHT_U.h>
-#include <Adafruit_BMP280.h>
-
+#include <BMP280.h>
 #include <SSD1306.h>
 #include <PubSubClient.h>
 
@@ -22,7 +21,7 @@
 
 EasyOTA OTA(ARDUINO_HOSTNAME);
 DHT_Unified dht11(02, DHT11);
-Adafruit_BMP280 bme;
+BMP280 bme;
 WiFiClient espClient;
 bool _can_sleep = true;
 PubSubClient client(espClient);
@@ -152,10 +151,9 @@ void setup() {
   display.clear();
   display.setFont(ArialMT_Plain_10);
   display.setColor(WHITE);
-#else
-	Wire.begin(SDA, SCL);
 #endif
-	bme.begin(0x76);
+	bme.begin(SDA, SCL);
+	bme.setOversampling(16);
 
 #if defined(ESP_WEATHER_VARIANT_OLED)
 	displayLine("Initializing", 0);
@@ -166,6 +164,7 @@ void setup() {
 	{
 		// Default config
 		OTA.addAP(WIFI_SSID, WIFI_PASSWORD);
+		OTA.addAP(WIFI_SSID1, WIFI_PASSWORD1);
 	}
 
 	OTA.allowOpen(true);
@@ -222,97 +221,108 @@ void loop() {
 	static float _battery = 0, _temperature = 0, _humidity = 0, _pressure = 0;
 	static bool _init = true;
 	static bool _send = false;
-
 	long now = millis();
+
 	OTA.loop(now);
 	client.loop();
 
-	if (now - last_m1 > 1000)
-	{
-		float temp, humi, psi, voltage = 0;
+	// perform measurements every second
+	if (now - last_m1 > 1000) {
+		double temp, humi, psi;
+		static long bme_ready = 0;
 
 		sensors_event_t event;
 		dht11.humidity().getEvent(&event);
-
 		humi = event.relative_humidity;
 
 		for (int i = 0; i < 10; i++)
-			voltage += analogRead(A0) / 1024.0;
+			_battery += analogRead(A0) / 1024.0;
 
-		temp = bme.readTemperature();
-		psi = bme.readPressure();
-
-		_temperature += temp;
 		_humidity += humi;
-		_pressure += psi;
-		_battery += voltage;
 
-		if (!_init)
-		{
+		// start BMP280 measurements
+		if (bme_ready == 0) {
+			bme_ready = now + bme.startMeasurment();
+		}
+
+		// Read BMP280 measurements
+		// NOTE: Will perform humidity and battery voltage measurements up til now
+		if (now - bme_ready > 0) {
+			bme.getTemperatureAndPressure(temp, psi);
+			if (_temperature == 0) {
+				_pressure = psi * 2;
+				_temperature = temp * 2;
+			} else {
+				_pressure += psi;
+				_temperature += temp;
+			}
+			bme_ready = 0;
+			_send = true;
+			last_m1 = now;
+
+#if defined(ESP_WEATHER_VARIANT_OLED)
+			char str[21];
+			sprintf(str, "T: %.1f", _temperature);
+			fillLine(str, 1);
+			sprintf(str, "P: %.1f", _pressure);
+			fillLine(str, 2);
+			sprintf(str, "H: %.1f", _humidity);
+			fillLine(str, 3);
+			displayLines();
+#endif
+		} else {
+			// retain messages until true measurement comes in
+			_temperature *= 2;
+			_pressure *= 2;
+		}
+
+		// first time measurements
+		if (!_init)  {
 			_temperature /= 2.0;
 			_humidity /= 2.0;
 			_pressure /= 2.0;
 			_battery /= 2.0;
-		} else
-		{
+		} else {
 			_init = false;
 		}
-		last_m1 = now;
-
-		char str[21];
-
-#if defined(ESP_WEATHER_VARIANT_OLED)
-		sprintf(str, "T: %.1f", _temperature);
-		fillLine(str, 1);
-		sprintf(str, "P: %.1f", _pressure);
-		fillLine(str, 2);
-		sprintf(str, "H: %.1f", _humidity);
-		fillLine(str, 3);
-		displayLines();
-#endif
-
-		_send = true;
 	}
 
-  if (_send && client.connected())
-	{
-      // Once connected, publish an announcement...
+	// handle MQTT connection and publishing
+  if (_send && client.connected()) {
+      // Publish telemetry data...
 			client.publish((myName + "/temperature").c_str(), String(_temperature).c_str(), true);
 			client.publish((myName + "/battery").c_str(), String(_battery).c_str(), true);
 			client.publish((myName + "/pressure").c_str(), String(_pressure).c_str(), true);
       client.publish((myName + "/humidity").c_str(), String(_humidity).c_str(), true);
 
 			_send = false;
-  } else if (_send)
-	{
-		// Attempt to connect
+  } else if (_send) {
     if (client.connect("client", MQTT_ID, MQTT_PASSW)) {
+			// Once connected, subscribe to config topics
 			client.subscribe((myName + "/apadd").c_str());
 			client.subscribe((myName + "/apremove").c_str());
 			client.subscribe((myName + "/name").c_str());
 			client.subscribe((myName).c_str());
+			// Announce self name
 			client.publish("announce", myName.c_str());
-			#if defined(ESP_WEATHER_VARIANT_OLED)
-					displayLine(myName.c_str(), 0);
-			#endif
+#if defined(ESP_WEATHER_VARIANT_OLED)
+			displayLine(myName.c_str(), 0);
+#endif
 		} else {
-			#if defined(ESP_WEATHER_VARIANT_OLED)
-					displayLine("No MQTT", 0);
-			#endif
-			//if (OTA.state() == EasyOTA::EOS_STA)
-				//last_m = now;
+#if defined(ESP_WEATHER_VARIANT_OLED)
+			displayLine("No MQTT", 0);
+#endif
 		}
 	}
 
-	if (_can_sleep && now - last_m > 30 * 1000)
-	{
-		// goto sleep
+	// Sleep after so much seconds
+	if (_can_sleep && now - last_m > 30 * 1000)	{
 		deepsleep();
 	}
 }
 
-void callback(char* topic, byte* payload, unsigned int length)
-{
+// This will receive MQTT configuration messages
+void callback(char* topic, byte* payload, unsigned int length) {
 	char str[128] = "";
 
 	memcpy(str, payload, min(sizeof(str), length));
@@ -336,6 +346,4 @@ void callback(char* topic, byte* payload, unsigned int length)
 	} else if (strcmp(topic, (myName + "/apremove").c_str())) {
 		removeAP(str);
 	}
-
-	//displayLine(str, 4);
 }
