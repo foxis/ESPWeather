@@ -229,7 +229,7 @@ void loop() {
 
 	if (now - last_m1 > 1000)
 	{
-		float temp, humi, psi, voltage;
+		float temp, humi, psi, voltage = 0;
 
 		sensors_event_t event;
 		dht11.humidity().getEvent(&event);
