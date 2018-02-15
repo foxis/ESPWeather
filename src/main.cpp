@@ -259,17 +259,6 @@ void loop() {
 			bme_ready = 0;
 			_send = true;
 			last_m1 = now;
-
-#if defined(ESP_WEATHER_VARIANT_OLED)
-			char str[21];
-			sprintf(str, "T: %.1f", _temperature);
-			fillLine(str, 1);
-			sprintf(str, "P: %.1f", _pressure);
-			fillLine(str, 2);
-			sprintf(str, "H: %.1f", _humidity);
-			fillLine(str, 3);
-			displayLines();
-#endif
 		} else {
 			// retain messages until true measurement comes in
 			_temperature *= 2;
@@ -278,24 +267,37 @@ void loop() {
 
 		// first time measurements
 		if (!_init)  {
+			_pressure /= 2.0;
 			_temperature /= 2.0;
 			_humidity /= 2.0;
-			_pressure /= 2.0;
 			_battery /= 2.0;
 		} else {
 			_init = false;
 		}
 	}
 
+	if (_send) {
+#if defined(ESP_WEATHER_VARIANT_OLED)
+		char str[21];
+		sprintf(str, "T: %.1f", _temperature);
+		fillLine(str, 1);
+		sprintf(str, "P: %.1f", _pressure);
+		fillLine(str, 2);
+		sprintf(str, "H: %.1f", _humidity);
+		fillLine(str, 3);
+		displayLines();
+#endif
+	}
+
 	// handle MQTT connection and publishing
   if (_send && client.connected()) {
-      // Publish telemetry data...
-			client.publish((myName + "/temperature").c_str(), String(_temperature).c_str(), true);
-			client.publish((myName + "/battery").c_str(), String(_battery).c_str(), true);
-			client.publish((myName + "/pressure").c_str(), String(_pressure).c_str(), true);
-      client.publish((myName + "/humidity").c_str(), String(_humidity).c_str(), true);
+    // Publish telemetry data...
+		client.publish((myName + "/temperature").c_str(), String(_temperature).c_str(), true);
+		client.publish((myName + "/battery").c_str(), String(_battery).c_str(), true);
+		client.publish((myName + "/pressure").c_str(), String(_pressure).c_str(), true);
+    client.publish((myName + "/humidity").c_str(), String(_humidity).c_str(), true);
 
-			_send = false;
+		_send = false;
   } else if (_send) {
     if (client.connect("client", MQTT_ID, MQTT_PASSW)) {
 			// Once connected, subscribe to config topics
