@@ -299,8 +299,8 @@ void loop() {
 			#if defined(ESP_WEATHER_VARIANT_OLED)
 					displayLine("No MQTT", 0);
 			#endif
-			if (OTA.state() == EasyOTA::EOS_STA)
-				last_m = now;
+			//if (OTA.state() == EasyOTA::EOS_STA)
+				//last_m = now;
 		}
 	}
 
