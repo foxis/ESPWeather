@@ -56,10 +56,10 @@ For waking up from Deep sleep GPIO 16 must be connected to RST. So more fine sol
 ## Reducing current consumption
 
 I've measured 1.8ma current in deep sleep.
-That means that the device sleeps for 30 minutes with 1.8mA current consuming 0.9mAh. During all the communication and measurements somewhere around 70-90 mA are flowing. So let's say it's 75mA for 30s. That translates to 0.625mAh. Therefore 800mAh battery would last a long time.
+That means that the device sleeps for 30 minutes with 1.8mA current consuming 1.8mAh(I assume it never goes away). During all the communication and measurements somewhere around 70-90 mA are flowing to the ESP. So let's say it's 75mA for 30s. That translates to 0.625mAh. Therefore 800mAh battery would last a long time (about 13 days).
 Sadly, the batteries I am using in the photos are pretty much dead and charge up to around 75-120mAh. Which lasted for about 40 hours which confirms current consumption measurements and rough calculations to a degree.
 
-That was with two LEDs being constantly lit.
+That was with two LEDs being constantly lit and an onboard regulator. Which I am surprised by, by the way.
 One can always remove those buggers, but I figured that with solar panel the device would run almost indefinitely and for home usage with a 800mAh battery
 
 # Configuration
