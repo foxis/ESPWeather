@@ -60,7 +60,8 @@ That means that the device sleeps for 30 minutes with 1.8mA current consuming 1.
 Sadly, the batteries I am using in the photos are pretty much dead and charge up to around 75-120mAh. Which lasted for about 40 hours which confirms current consumption measurements and rough calculations to a degree.
 
 That was with two LEDs being constantly lit and an onboard regulator. Which I am surprised by, by the way.
-One can always remove those buggers, but I figured that with solar panel the device would run almost indefinitely and for home usage with a 800mAh battery
+One can always remove those buggers, but I figured that with solar panel the device would run almost indefinitely and would have plenty of run time for home usage with a 800mAh battery.
+By removing the blue LED current drops to ~400uA during deep sleep.
 
 # Configuration
 
