@@ -67,7 +67,8 @@ public:
 	}
 
 	void reconnect() {
-		if (client.connect(ARDUINO_HOSTNAME, MQTT_ID, MQTT_PASSW)) {
+		String clientName = ARDUINO_HOSTNAME + String("-") + config.myName;
+		if (client.connect(clientName.c_str(), MQTT_ID, MQTT_PASSW)) {
 			// Once connected, subscribe to config topics
 			client.subscribe((config.myName + "/apadd").c_str());
 			client.subscribe((config.myName + "/apremove").c_str());
