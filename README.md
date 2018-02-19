@@ -215,6 +215,11 @@ To remediate that I skip several first readings.
 ## DHT11
 Sometimes DHT11 will not read any data. And most of the time when the battery is almost depleted (<2.8V) there are no readings.
 
+# Icons
+
+Icons made by https://www.flaticon.com/authors/pixel-perfect Pixel perfect from www.flaticon.com is licensed by http://creativecommons.org/licenses/by/3.0/ Creative Commons BY 3.0
+
+
 # License
 
 MIT License

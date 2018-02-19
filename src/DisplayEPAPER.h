@@ -41,8 +41,9 @@ SOFTWARE.
 
 #include <map>
 
-#define LINES 6
-#define LINE_LENGTH 21
+#include <icons.h>
+#include <imglib/gridicons_video_camera.h>
+
 #define UPDATE_DELAY 5000
 
 class Display : public DisplayBase
@@ -53,7 +54,6 @@ class Display : public DisplayBase
 	GxEPD_Class display; // default selection of D4(=2), D2(=4)
 
 	ConfigurationBase& config;
-	char _symbols[LINES] = {' ', ' ', 'T', 'P', 'H', 'B'};
 
 	typedef struct {
 		float battery;
@@ -88,6 +88,7 @@ public:
 	void clear()
 	{
 		display.fillScreen(GxEPD_WHITE);
+		display.setRotation(3);
 	}
 
 	virtual void publish_telemetry(const String& name, float battery, float temp, float humidity, float pressure)
@@ -137,11 +138,11 @@ private:
 
 		display.setTextColor(GxEPD_RED);
 		display.setFont(&FreeMono9pt7b);
-		for (int i = 0; i < LINES; i++)
-		{
-			display.setCursor(0, 16 + 16 * i);
-			display.print(_symbols[i]);
-		}
+
+		display.drawBitmap(0, 32, gImage_celcius, 16, 16, GxEPD_RED);
+		display.drawBitmap(0, 32 + 18, gImage_gauge, 16, 16, GxEPD_RED);
+		display.drawBitmap(0, 32 + 18 * 2, gImage_humidity, 16, 16, GxEPD_RED);
+		display.drawBitmap(0, 32 + 18 * 3, gImage_battery, 16, 16, GxEPD_RED);
 
 		std::map<String, telemetry_t>::reverse_iterator I = telemetry.rbegin();
 		int index = 0;
