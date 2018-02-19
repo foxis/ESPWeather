@@ -17,6 +17,9 @@ class Telemetry : public TelemetryBase
 	DHT_Unified dht11;
 	BMP280 bme;
 	ConfigurationBase& config;
+	unsigned long last_m1;
+	bool _init;
+	int _skip_readings;
 
 public:
 	Telemetry(ConfigurationBase& config) : TelemetryBase(), config(config), dht11(02, DHT11) {
@@ -32,6 +35,7 @@ public:
 		_temperature = 0;
 		_humidity = 0;
 		_pressure = 0;
+		_skip_readings = 5;
 		_init = true;
 		_send = false;
 		bme_ready = 0;
@@ -39,7 +43,7 @@ public:
 		bme_ready = last_m1 + bme.startMeasurment();
 	}
 
-	virtual void loop(long now) {
+	virtual void loop(unsigned long now) {
 		// perform measurements every second
 		if (now - last_m1 > 1000) {
 			double temp, humi, psi;
@@ -62,15 +66,20 @@ public:
 			// NOTE: Will perform humidity and battery voltage measurements up til now
 			if (now - bme_ready > 0) {
 				bme.getTemperatureAndPressure(temp, psi);
-				if (_temperature == 0) {
+				if (_skip_readings)
+				{
+					_send = false;
+					_skip_readings--;
+				} else if (_temperature == 0) {
 					_pressure = psi * 2;
 					_temperature = temp * 2;
+					_send = true;
 				} else {
 					_pressure += psi;
 					_temperature += temp;
+					_send = true;
 				}
 				bme_ready = 0;
-				_send = true;
 				last_m1 = now;
 			} else {
 				// retain messages until true measurement comes in
@@ -89,9 +98,6 @@ public:
 			}
 		}
 	}
-
-private:
-	long last_m1;
 };
 
 #endif

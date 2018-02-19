@@ -137,13 +137,13 @@ public:
 
 	virtual void deepsleep()
 	{
-		display.publish_status("");
+		display.end();
 		ESP.deepSleep(30L*60L*1000000L /*, optional RFMode mode*/);
 	}
 
 	virtual void restart()
 	{
-		display.publish_status("");
+		display.end();
 		ESP.restart();
 	}
 

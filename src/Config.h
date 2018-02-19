@@ -63,11 +63,12 @@ public:
 		last_m = millis();
 }
 
-	void loop(long now)
+	void loop(unsigned long now)
 	{
 		OTA.loop(now);
 		mqtt.loop(now);
 		telemetry.loop(now);
+		display.loop(now);
 
 		// Sleep after so much seconds
 		if (can_sleep && now - last_m > 30 * 1000)	{
@@ -88,7 +89,7 @@ public:
 	}
 
 private:
-	long last_m;
+	unsigned long last_m;
 };
 
 #endif

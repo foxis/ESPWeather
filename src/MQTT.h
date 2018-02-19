@@ -6,15 +6,18 @@
 
 class MQTT
 {
-public:
-	static MQTT* instance;
-
 	WiFiClient espClient;
 	PubSubClient client;
 	ConfigurationBase& config;
+	bool announced;
+	std::vector<String> listening;
+
+public:
+	static MQTT* instance;
 
 	MQTT(ConfigurationBase& config) : config(config), client(espClient) {
 		instance = this;
+		announced = false;
 	}
 
 	void begin() {
@@ -24,7 +27,7 @@ public:
 			// This will receive MQTT configuration messages
 			char str[128] = "";
 
-			memcpy(str, payload, min(sizeof(str), length));
+			memcpy(str, payload, min(sizeof(str) - 1, length));
 
 			if (strcmp(topic, MQTT::instance->config.myName.c_str()) == 0){
 				if (strcmp(str, "PING") == 0)
@@ -36,19 +39,62 @@ public:
 			 else if (strcmp(str, "RESTART") == 0)
 		 		 MQTT::instance->config.restart();
 			} else if (strcmp(topic, (MQTT::instance->config.myName + "/name").c_str()) == 0) {
-				MQTT::instance->config.setMyName(str);
-			} else if (strcmp(topic, (MQTT::instance->config.myName + "/apadd").c_str())) {
+				char name[128] = "";
+				char *src = str;
+				char *dst = name;
+				while (*src)
+				{
+					*dst = *(src++);
+					if ((*dst == ',' || *dst == ' ' || *src == '\0') && dst > name) {
+						if (*src == '\0') dst++;
+						*dst = '\0';
+						dst = name;
+						MQTT::instance->listening.push_back(name);
+					} else
+						dst++;
+				}
+
+				MQTT::instance->config.setMyName(MQTT::instance->listening[0]);
+				MQTT::instance->listening.erase(MQTT::instance->listening.begin());
+#if defined(ESP_WEATHER_VARIANT_EPAPER)
+				std::vector<String>::iterator I = MQTT::instance->listening.begin();
+				while (I != MQTT::instance->listening.end()) {
+					MQTT::instance->client.subscribe((*I + "/temperature").c_str());
+					MQTT::instance->client.subscribe((*I + "/pressure").c_str());
+					MQTT::instance->client.subscribe((*I + "/humidity").c_str());
+					MQTT::instance->client.subscribe((*I + "/battery").c_str());
+					I++;
+				}
+#endif
+			} else if (strcmp(topic, (MQTT::instance->config.myName + "/apadd").c_str()) == 0) {
 				char ssid[128] = "";
 				char passw[128] = "";
 				sscanf("%s %s", ssid, passw);
 				MQTT::instance->config.addAP(ssid, passw);
-			} else if (strcmp(topic, (MQTT::instance->config.myName + "/apremove").c_str())) {
+			} else if (strcmp(topic, (MQTT::instance->config.myName + "/apremove").c_str()) == 0) {
 				MQTT::instance->config.removeAP(str);
-			}
+			} else
+				MQTT::instance->handle_listen_stations(topic, str);
 		});
 	}
 
-	void loop(long now) {
+	void handle_listen_stations(const char * topic, const char * data) {
+		std::vector<String>::iterator I = listening.begin();
+		while (I != listening.end())
+		{
+			if (strcmp(topic, (*I + "/temperature").c_str()) == 0)
+				config.display.publish_telemetry(*I, 0, atof(data), 0, 0);
+			else if (strcmp(topic, (*I + "/battery").c_str()) == 0)
+				config.display.publish_telemetry(*I, atof(data), 0, 0, 0);
+			else if (strcmp(topic, (*I + "/pressure").c_str()) == 0)
+				config.display.publish_telemetry(*I, 0, 0, 0, atof(data));
+			else if (strcmp(topic, (*I + "/humidity").c_str()) == 0)
+				config.display.publish_telemetry(*I, 0, 0, atof(data), 0);
+			I++;
+		}
+	}
+
+	void loop(unsigned long now) {
 		client.loop();
 
 		if (config.OTA.state() == EasyOTA::EOS_STA)
@@ -57,11 +103,23 @@ public:
 				reconnect();
 			else {
 				if (config.telemetry._send){
+					if (!announced)
+					{
+						client.publish("announce", config.myName.c_str());
+						config.display.publish_name(config.myName);
+						announced = true;
+					}
 					publish_telemetry();
-					config.display.publish_telemetry(config.myName);
-					config.telemetry._send = false;
 					config.display.publish_status(config.myName);
+					config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure);
+					config.telemetry._send = false;
 				}
+			}
+		} else {
+			if (config.telemetry._send) {
+				config.display.publish_status("No Wifi");
+				config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure);
+				config.telemetry._send = false;
 			}
 		}
 	}
@@ -74,12 +132,12 @@ public:
 			client.subscribe((config.myName + "/apremove").c_str());
 			client.subscribe((config.myName + "/name").c_str());
 			client.subscribe((config.myName).c_str());
-			// Announce self name
-			client.publish("announce", config.myName.c_str());
-
-			config.display.publish_name(config.myName);
 		} else {
-			//config.display.publish_status("No MQTT");
+			config.display.publish_status("No MQTT");
+			if (config.telemetry._send) {
+				config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure);
+				config.telemetry._send = false;
+			}
 		}
 	}
 

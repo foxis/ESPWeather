@@ -25,15 +25,18 @@ public:
 	  display.setFont(ArialMT_Plain_10);
 	  display.setColor(WHITE);
 	}
+	virtual void end() {
+		publish_status("");
+	};
 
-	virtual void publish_telemetry(const String& name)
+	virtual void publish_telemetry(const String& name, float battery, float temp, float humidity, float pressure)
 	{
 		char str[21];
-		sprintf(str, "T: %.1f", config.telemetry._temperature);
+		sprintf(str, "T: %.1f", temp);
 		fillLine(str, 1);
-		sprintf(str, "P: %.1f", config.telemetry._pressure);
+		sprintf(str, "P: %.1f", pressure);
 		fillLine(str, 2);
-		sprintf(str, "H: %.1f", config.telemetry._humidity);
+		sprintf(str, "H: %.1f", humidity);
 		fillLine(str, 3);
 		displayLines();
 	}
@@ -53,7 +56,7 @@ public:
 		displayLine(str.c_str(), 4);
 	}
 
-	virtual void loop(long now)
+	virtual void loop(unsigned long now)
 	{
 
 	}
