@@ -1,18 +1,21 @@
 # ESPWeather
+
+![Weather Station EPD variant](schematics/ESPWeather.jpg)
+
 ESP-1S or ESP-12 weather station that publishes telemetry to a configured MQTT broker.
 The device will try to connect to configured multiple Wifi networks and if no such were found, will try open networks.
-Then it will connect to MQTT broker and announce telemetry data until 30 seconds elapses. In that case it will go to deep sleep for 30 minutes and the process begins.
+Then it will connect to MQTT broker and announce telemetry data until 30 seconds elapses. In that case it will go to deep sleep for 30 minutes and the process starts over.
 
-There are three device variants: OLED, E-Paper and headless.
+There are three device variants: OLED, E-Paper and Headless.
 Also there is Web UI (TODO) that can be used for initial configuration or telemetry readings in AP mode if no networks are present.
-Note, that after each UI query sleep timer will be reset, meaning that if one does not dwell too long(30s) will be able to use the device.
+Note, that after each UI query sleep timer will be reset, meaning that if one does not dwell for too long(30s) will be able to use the device until the battery dies.
 Websockets are used for telemetry transfer to the UI.
 
 ## Headless
 
 ![Headless Weather Station variant](schematics/headless_proto.jpg)
 
-These have no interface and are intended to place into various strange places. Like the balcony or the room.
+These have no user interface and are intended to be placed into various strange places. Like the balcony or the room. One of mine currently sits in the biology museum.
 
 ## OLED
 
@@ -24,7 +27,11 @@ These have no interface and are intended to place into various strange places. L
 
 `ESP_WEATHER_VARIANT_EPAPER` must be enabled in `wificonfig.h` for that option. `ESP_WEATHER_VARIANT_OLED` and `ESP_WEATHER_VARIANT_EPAPER` are mutually exclusive and the latter is only available when using ESP-12 module as SPI interface is required for it's operation. ESP-1 does not have enough pins for this feature.
 
-TODO: build a prototype with E-Paper and find/create some library that talks to it.
+![OLED Weather Station variant](schematics/ESPWeather_back.jpg)
+
+Please note, that for other variants esp01_1m board is used. E-Paper variant uses d1_mini board. I had some random issues flashing ESP-12 using esp01_1m board either via serial upload or OTA. Also, since RX and TX pins are used for I2C communication to the BMP280 sensor, once it is soldered OTA programming might be the only option.
+
+The most desirable feature of this variant is that the display is so wide it can fit four readings. Station names that this variant can display are configured using `{device name}/name` MQTT message as described in relevant section below. First column is always the current station and three other are configurable.
 
 ## UI
 
@@ -32,26 +39,41 @@ TODO
 
 # Construction
 
-DHT11 and BMP280 modules are used in this device for prototypes.
-SSD1306 and 3 color 2.13" E-Paper HAT are used for OLED and E-Paper variants respectively.
-For E-Paper prototype Wemos D1 mini is used.
+DHT11 and BMP280 modules are used in this device for prototypes. BME280 or even BME680 will be used in production.
+SSD1306 and 3 colour 2.13" E-Paper HAT are used for OLED and E-Paper variants respectively.
+For E-Paper prototype Wemos D1 mini was used and later replaced with standalone ESP-12F module.
 
-For battery management I used a TP4050 micro-usb module with protection circuitry. If one has Lipo/LiIon batteries with protection in possession, then protection-less charging boards can be used.
+For battery management I used a TP4050 micro-usb module with protection circuitry. If one has Lipo/LiIon batteries with protection in possession, then protection-less charging boards can be used. Mine boards have USB mini soldered which I personally do not like.
 
 I plan adding a 6V solar panel so I could start measuring outside temperature without worrying about the battery.
 
-OLED variant in the above picture does not use any charging circuitry as it is meant for always-connected (or battery-pack) usage.  
+OLED variant in the above picture does not use any charging circuitry as it is meant for always-connected (or battery-pack) usage. However please note, that most battery packs will disconnect the battery from the station once it goes into deep sleep mode.
 
 Cases for these can be 3D printed. TODO.
+
+* Rx is SCL
+* Tx is SDA
+* GPIO 2 is 1-Wire interface for DHT11
+* GPIO 13, 14, 15, 5, 12, 4 are for EPD signals: DIN, CLK, CS, DC, RST, BUSY respectively
+* TOUT or ADC is for battery monitoring and connected to battery input via 1/10 voltage divider (ADC can measure up to 1.0V, so this scale factor is quite convenient)
+* sourced on Ebay: DHT11 for ESP-1S module, BMP280 board, TP4050 lipo micro-usb charger board, SSD1306 and 2.13" RPI-Zero E-Paper HAT (Waveshare)
+* LiIon Batteries from various dead cell phones and cheap Chinese video registrators
+
+## Schematics
+
+Shall design proper boards with BME280 or BME680 with ldo, lipo charger and connector, with headers for OLED/EPaper.
 
 ## Battery monitoring
 
 I use 100k trim pot directly across battery connector to the DH11 board, trim it to 1/10th of the battery voltage and solder the center tap to a TOUT pin right to the ESP8266 chip.
 I suggest flashing the ESP-1 module before soldering, so that the wire wouldn't be stressed to much.
+Discrete resistors for voltage divider can be seen in some the photos - this is because I ran out of trim pots:) And the dividing factor is not really precise, since I did not have 90k resistors and opted out for 2x51k + 10kx1k resistors. For the prototypes I am only interested in monitoring approximate voltage drop for the batteries and approximate point when DHT11 fails to provide meaningful readings.
+
+At about 2.80V of battery voltage DHT11 library returns nan. This voltage is even too low for ESP, but surprisingly it survives until 2.65(minus voltage drop across ldo).
 
 ## Deep Sleep function
 
-For waking up from Deep sleep GPIO 16 must be connected to RST. So more fine soldering skills are required in case of ESP-1.
+For waking up from Deep sleep GPIO 16 must be connected to RST. So more fine soldering skills are required in case of ESP-1. ESP-12 is more forgiving in that regard.
 
 ## Reducing current consumption
 
@@ -61,11 +83,11 @@ Sadly, the batteries I am using in the photos are pretty much dead and charge up
 
 That was with two LEDs being constantly lit and an onboard regulator. Which I am surprised by, by the way.
 One can always remove those buggers, but I figured that with solar panel the device would run almost indefinitely and would have plenty of run time for home usage with a 800mAh battery.
-By removing the blue LED current drops to ~400uA during deep sleep.
+By removing the blue LED current drops to ~400uA during deep sleep and the dead'est battery still runs for 4 days already at 3.75V.
 
 # Configuration
 
-Please look at `sample_wificonfig.h` file, select relevant features, add default Wifi credentials, MQTT connection details and build.
+Please look at `sample_wificonfig.h` file, select relevant features, add default Wifi credentials, MQTT connection details and build after selecting appropriate board.
 Note, that wifi connection and MQTT are required if one wants to configure the device, e.g. changing the name or adding more access points.
 
 # Topics being published by the device
@@ -77,11 +99,11 @@ One can configure a different name by publishing to `{device name}/name` a new n
 
 ## {device name}/temperature
 
-Temperature of the surroundings in celcius.
+Temperature of the surroundings in deg. centigrade.
 
 ## {device name}/pressure
 
-Air pressure of the surroundings in kPa.
+Air pressure of the surroundings in milli Bar.
 
 ## {device name}/humidity
 
@@ -95,7 +117,12 @@ Battery voltage in volts.
 
 ## {device name}/name
 
-Publishing to this topic will change device name.
+Publishing to this topic will change station name.
+Device name must not contain neither commas nor spaces as these symbols are reserved for E-Paper variant.
+One can specify a list of station names separated by a space or comma, so that measurement from those stations can be monitored.
+E.g. "paper OLED outside mobile" was used in the E-Paper variant shown in the photo.
+That means, that E-Paper variant's name was set to "paper" and three other stations were monitored: OLED, outside and mobile.
+Since each station published persistent telemetry messages, the latest data is being monitored and subsequently displayed on the E-Paper display.
 
 ## {device name}/apadd
 
@@ -132,5 +159,16 @@ Useful for device status monitoring.
 
 # Things to note
 
+## RX/TX pins
+Due to pin count limitation on ESP-1 RX and TX pins are used for I2C bus. I2C devices seem to survive initial burst of boot info that is fed during bootup, but programming via serial while these pins are still connected to OLED/BMP280 is not advised. I've tried it, but ESP-12 module does not boot.
+
+## SPIFFS
 Until now (20180216) ESP-01 with PUYA flash chips are not supported by the SPIFFS library (it can read uploaded, but not properly write files.).
 As a workaround one can publish config topics with persistent messages. E.g. setting name of the device. Setting up Wifi in this fashion isn't really useful for obvious reasons though.
+
+## BMP280
+For some reason very first measurement is way too high (both temperature and pressure). I've tried several libraries with no luck. In fact Adafruit_BMP280 library gives way too high readings all the time. The one I'm using currently (BMP280) is simplistic and allows to set different oversampling values and gives the most accurate readings except for the very first.
+To remediate that I skip several first readings.
+
+## DHT11
+Sometimes DHT11 will not read any data. And most of the time when the battery is almost depleted (<2.8V) there are no readings.

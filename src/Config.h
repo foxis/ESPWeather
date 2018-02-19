@@ -46,7 +46,9 @@ public:
 		{
 			// Default config
 			OTA.addAP(WIFI_SSID, WIFI_PASSWORD);
+#if defined(WIFI_SSID1)
 			OTA.addAP(WIFI_SSID1, WIFI_PASSWORD1);
+#endif
 		}
 
 		OTA.allowOpen(true);
