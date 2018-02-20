@@ -65,6 +65,9 @@ public:
 #if defined(WIFI_SSID1)
 			OTA.addAP(WIFI_SSID1, WIFI_PASSWORD1);
 #endif
+#if defined(WIFI_SSID2)
+			OTA.addAP(WIFI_SSID2, WIFI_PASSWORD2);
+#endif
 		}
 
 		OTA.allowOpen(true);
