@@ -15,7 +15,6 @@
 *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  **/
 // PUYA flash is not supported by SPIFFS library
-#define PUYA_ISSUE
 #include "Config.h"
 
 Configuration config;

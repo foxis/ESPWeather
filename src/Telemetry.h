@@ -30,7 +30,9 @@
 
 class Telemetry : public TelemetryBase
 {
+#ifndef ESP_WEATHER_NO_HUMIDITY
 	DHT_Unified dht11;
+#endif
 	BMP280 bme;
 	ConfigurationBase& config;
 	unsigned long last_m1;
@@ -38,12 +40,20 @@ class Telemetry : public TelemetryBase
 	int _skip_readings;
 
 public:
-	Telemetry(ConfigurationBase& config) : TelemetryBase(), config(config), dht11(02, DHT11) {
+	Telemetry(ConfigurationBase& config) :
+		TelemetryBase(),
+		config(config)
+#ifndef ESP_WEATHER_NO_HUMIDITY
+		, dht11(02, DHT11)
+#endif
+	{
 
 	}
 
 	virtual void begin() {
+		#ifndef ESP_WEATHER_NO_HUMIDITY
 		dht11.begin();
+		#endif
 		bme.begin(SDA, SCL);
 		bme.setOversampling(16);
 
@@ -64,9 +74,11 @@ public:
 		if (now - last_m1 > 1000) {
 			double temp, humi, psi;
 
+			#ifndef ESP_WEATHER_NO_HUMIDITY
 			sensors_event_t event;
 			dht11.humidity().getEvent(&event);
 			humi = event.relative_humidity;
+			#endif
 
 			for (int i = 0; i < 10; i++)
 				_battery += analogRead(A0) / 1024.0;

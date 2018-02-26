@@ -167,7 +167,9 @@ public:
 		client.publish((config.myName + "/temperature").c_str(), String(config.telemetry._temperature).c_str(), true);
 		client.publish((config.myName + "/battery").c_str(), String(config.telemetry._battery).c_str(), true);
 		client.publish((config.myName + "/pressure").c_str(), String(config.telemetry._pressure).c_str(), true);
+		#ifndef ESP_WEATHER_NO_HUMIDITY
     client.publish((config.myName + "/humidity").c_str(), String(config.telemetry._humidity).c_str(), true);
+		#endif
 	}
 };
 
