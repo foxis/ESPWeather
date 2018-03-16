@@ -1,3 +1,5 @@
+![Invent This, Invent That](schematics/IT2-logo.png)
+
 # ESPWeather
 
 ![Weather Station EPD variant](schematics/ESPWeather.jpg)
@@ -103,7 +105,11 @@ Cases for these can be 3D printed. TODO.
 
 ## Schematics
 
-Shall design proper boards with BME280 or BME680 with ldo, lipo charger and connector, with headers for OLED/EPaper.
+![ESPWeather schematics](schematics/schematics.png)
+![WaveShare 2.13in E-Paper HAT board](schematics/board-all.png)
+![0.96" OLED or HEADLESS board](schematics/board-headless.png)
+
+EasyEDA project page: https://easyeda.com/andrius.mikonis/ESPWeather-7eab5122a6f84e15a6e2534b3213e768
 
 ## Battery monitoring
 
