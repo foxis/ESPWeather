@@ -54,7 +54,7 @@ public:
 		fillLine(str, 2);
 		sprintf(str, "H: %.1f", humidity);
 		fillLine(str, 3);
-		sprintf(str, "B: %.1f", light);
+		sprintf(str, "L: %.1f    B: %.1f", light, battery);
 		fillLine(str, 4);
 		displayLines();
 	}
