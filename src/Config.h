@@ -34,19 +34,20 @@
 #include "MQTT.h"
 
 
-
-class Configuration : ConfigurationBase
+class Configuration : public ConfigurationBase
 {
 public:
 	MQTT mqtt;
 	Display _display;
 	Telemetry _telemetry;
+	AsyncWebServer server;
 
 	Configuration():
 	  ConfigurationBase(_display, _telemetry),
 		mqtt(*this),
 		_display(*this),
-		_telemetry(*this)
+		_telemetry(*this),
+		server(80)
 	{
 
 	}
@@ -81,6 +82,28 @@ public:
 
 		mqtt.begin();
 
+		server.serveStatic("/", SPIFFS, "/web").setDefaultFile("index.html");
+		server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request) {
+			request->send(200, "text/plain", String(ESP.getFreeHeap()));
+		});
+		server.on("/keepalive", HTTP_GET, [](AsyncWebServerRequest *request) {
+			request->send(200, "text/plain", String("OK"));
+			ConfigurationBase::instance->keepalive();
+		});
+		server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request) {
+			AsyncWebServerResponse *response = request->beginResponse(SPIFFS, CONFIG_FILE);
+			//request->send(SPIFFS, "/profiles.json");
+			response->addHeader("Access-Control-Allow-Origin", "*");
+			response->addHeader("Access-Control-Allow-Methods", "GET");
+			response->addHeader("Content-Type", "application/json");
+			request->send(response);
+		});
+		server.on("/config", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+			ConfigurationBase::instance->save_file(request, CONFIG_FILE, data, len, index, total);
+		});
+		server.onNotFound([](AsyncWebServerRequest *request) { request->send(404); });
+		server.begin();
+
 		last_m = millis();
 }
 
@@ -92,7 +115,7 @@ public:
 		display.loop(now);
 
 		// Sleep after so much seconds
-		if (can_sleep && now - last_m > 30 * 1000)	{
+		if (can_sleep && now - last_m > this->timeout || this->maxreadings && (mqtt.readings >= this->maxreadings))	{
 			deepsleep();
 		}
 	}
@@ -108,9 +131,6 @@ public:
 		mqtt.disconnect();
 		ConfigurationBase::restart();
 	}
-
-private:
-	unsigned long last_m;
 };
 
 #endif

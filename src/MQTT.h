@@ -30,10 +30,12 @@ class MQTT
 
 public:
 	static MQTT* instance;
+	int readings;
 
 	MQTT(ConfigurationBase& config) : config(config), client(espClient) {
 		instance = this;
 		announced = false;
+		readings = 0;
 	}
 
 	void begin() {
@@ -170,6 +172,7 @@ public:
 		#ifndef ESP_WEATHER_NO_HUMIDITY
     client.publish((config.myName + "/humidity").c_str(), String(config.telemetry._humidity).c_str(), true);
 		#endif
+		readings++;
 	}
 };
 

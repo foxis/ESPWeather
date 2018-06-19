@@ -22,7 +22,8 @@
 #include "TelemetryBase.h"
 
 #include <EasyOTA.h>
-
+#include <ESPAsyncWebServer.h>
+#include <SPIFFSEditor.h>
 #include <ArduinoJson.h>
 #if defined(ESP32)
 #include "SPIFFS.h"
@@ -33,8 +34,14 @@
 #define CONFIG_FILE "/config.json"
 #define MY_NAME "serverName"
 #define NETWORKS "networks"
+#define DEEPSLEEPTIMEOUT "deepsleeptimeout"
+#define TIMEOUT "timeout"
+#define CANSLEEP "cansleep"
+#define MAXREADINGS "maxreadings"
 #define SDA  1
 #define SCL 3
+// 3 RX
+// 1 TX
 
 class ConfigurationBase
 {
@@ -46,6 +53,11 @@ public:
 
 	String myName;
 	bool can_sleep;
+	unsigned long timeout;
+	unsigned long deepsleeptimeout;
+	int maxreadings;
+
+	unsigned long last_m;
 
 	ConfigurationBase(DisplayBase& display, TelemetryBase& telemetry) :
 		OTA(ARDUINO_HOSTNAME),
@@ -55,6 +67,9 @@ public:
 		instance = this;
 		myName = "";
 		can_sleep = true;
+		timeout = 15000;
+		deepsleeptimeout = 1800000000;
+		maxreadings = 3;
 	}
 
 	void setMyName(const String& name)
@@ -107,6 +122,15 @@ public:
 			return false;
 		}
 
+		if (json.containsKey(DEEPSLEEPTIMEOUT))
+			deepsleeptimeout = json[DEEPSLEEPTIMEOUT];
+		if (json.containsKey(TIMEOUT))
+			timeout = json[TIMEOUT];
+		if (json.containsKey(CANSLEEP))
+			can_sleep = json[CANSLEEP];
+		if (json.containsKey(MAXREADINGS))
+			maxreadings = json[MAXREADINGS];
+
 		if (json.containsKey(NETWORKS)){
 			JsonObject& jo = json[NETWORKS];
 			JsonObject::iterator I = jo.begin();
@@ -140,6 +164,10 @@ public:
 	  }
 		JsonObject& json = jsonBuffer.createObject();
 	  json[MY_NAME] = myName;
+		json[DEEPSLEEPTIMEOUT] = deepsleeptimeout;
+		json[TIMEOUT] = timeout;
+		json[CANSLEEP] = can_sleep;
+		json[MAXREADINGS] = maxreadings;
 		JsonObject& data = json.createNestedObject(NETWORKS);
 		OTA.eachAP([](const String& ssid, const String& pw, void * ja){
 			(*(JsonObject*)ja)[ssid] = pw;
@@ -151,10 +179,38 @@ public:
 	  return true;
 	}
 
+	bool save_file(AsyncWebServerRequest *request, const String& fname, uint8_t * data, size_t len, size_t index, size_t total)
+	{
+		Serial.println("Saving config " + fname +" len/index: " + String(len) + "/" +  String(index));
+
+		File f = SPIFFS.open(fname, index != 0 ? "a" : "w");
+	  if (!f) {
+			request->send(404, "application/json", "{\"msg\": \"ERROR: couldn't " + fname + " file for writing!\"}");
+			return false;
+		}
+
+		// TODO sanity checks
+
+		f.write(data, len);
+
+		if (f.size() >= total)
+		{
+			request->send(200, "application/json", "{\"msg\": \"INFO: " + fname + " saved!\"}");
+			Serial.println("Saving config... DONE");
+		}
+
+		f.close();
+		return true;
+	}
+
 	virtual void deepsleep()
 	{
 		display.end();
-		ESP.deepSleep(30L*60L*1000000L /*, optional RFMode mode*/);
+		ESP.deepSleep(this->deepsleeptimeout);
+	}
+
+	void keepalive() {
+		last_m = millis();
 	}
 
 	virtual void restart()

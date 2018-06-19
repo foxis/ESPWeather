@@ -21,7 +21,8 @@ class TelemetryBase
 {
 public:
 	TelemetryBase() {
-
+		_send = false;
+		_battery = _temperature = _humidity = _pressure = 0;
 	}
 
 	virtual void begin() = 0;
@@ -29,7 +30,6 @@ public:
 
 	float _battery, _temperature, _humidity, _pressure;
 	bool _send;
-	long bme_ready;
 };
 
 #endif
