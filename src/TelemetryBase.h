@@ -22,13 +22,13 @@ class TelemetryBase
 public:
 	TelemetryBase() {
 		_send = false;
-		_battery = _temperature = _humidity = _pressure = 0;
+		_battery = _temperature = _humidity = _pressure = _light = 0;
 	}
 
 	virtual void begin() = 0;
 	virtual void loop(unsigned long now) = 0;
 
-	float _battery, _temperature, _humidity, _pressure;
+	float _battery, _temperature, _humidity, _pressure, _light;
 	bool _send;
 };
 

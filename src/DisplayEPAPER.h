@@ -82,7 +82,7 @@ public:
 		display.setRotation(3);
 	}
 
-	virtual void publish_telemetry(const String& name, float battery, float temp, float humidity, float pressure)
+	virtual void publish_telemetry(const String& name, float battery, float temp, float humidity, float pressure, float light)
 	{
 		telemetry_t tele = {battery, temp, humidity, pressure};
 

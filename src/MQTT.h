@@ -101,13 +101,15 @@ public:
 		while (I != listening.end())
 		{
 			if (strcmp(topic, (*I + "/temperature").c_str()) == 0)
-				config.display.publish_telemetry(*I, 0, atof(data), 0, 0);
+				config.display.publish_telemetry(*I, 0, atof(data), 0, 0, 0);
 			else if (strcmp(topic, (*I + "/battery").c_str()) == 0)
-				config.display.publish_telemetry(*I, atof(data), 0, 0, 0);
+				config.display.publish_telemetry(*I, atof(data), 0, 0, 0, 0);
 			else if (strcmp(topic, (*I + "/pressure").c_str()) == 0)
-				config.display.publish_telemetry(*I, 0, 0, 0, atof(data));
+				config.display.publish_telemetry(*I, 0, 0, 0, atof(data), 0);
 			else if (strcmp(topic, (*I + "/humidity").c_str()) == 0)
-				config.display.publish_telemetry(*I, 0, 0, atof(data), 0);
+				config.display.publish_telemetry(*I, 0, 0, atof(data), 0, 0);
+			else if (strcmp(topic, (*I + "/light").c_str()) == 0)
+				config.display.publish_telemetry(*I, 0, 0, 0, 0, atof(data));
 			I++;
 		}
 	}
@@ -129,14 +131,14 @@ public:
 					}
 					publish_telemetry();
 					config.display.publish_status(config.myName);
-					config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure);
+					config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure, config.telemetry._light);
 					config.telemetry._send = false;
 				}
 			}
 		} else {
 			if (config.telemetry._send) {
 				config.display.publish_status("No Wifi");
-				config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure);
+				config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure, config.telemetry._light);
 				config.telemetry._send = false;
 			}
 		}
@@ -153,7 +155,7 @@ public:
 		} else {
 			config.display.publish_status("No MQTT");
 			if (config.telemetry._send) {
-				config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure);
+				config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure, config.telemetry._light);
 				config.telemetry._send = false;
 			}
 		}

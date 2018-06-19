@@ -45,7 +45,7 @@ public:
 		publish_status("");
 	};
 
-	virtual void publish_telemetry(const String& name, float battery, float temp, float humidity, float pressure)
+	virtual void publish_telemetry(const String& name, float battery, float temp, float humidity, float pressure, float light)
 	{
 		char str[21];
 		sprintf(str, "T: %.1f", temp);
@@ -54,6 +54,8 @@ public:
 		fillLine(str, 2);
 		sprintf(str, "H: %.1f", humidity);
 		fillLine(str, 3);
+		sprintf(str, "B: %.1f", light);
+		fillLine(str, 4);
 		displayLines();
 	}
 

@@ -38,6 +38,7 @@
 #define TIMEOUT "timeout"
 #define CANSLEEP "cansleep"
 #define MAXREADINGS "maxreadings"
+#define ALLOWOPEN "allowopen"
 #define SDA  1
 #define SCL 3
 // 3 RX
@@ -56,6 +57,7 @@ public:
 	unsigned long timeout;
 	unsigned long deepsleeptimeout;
 	int maxreadings;
+	bool allowopen;
 
 	unsigned long last_m;
 
@@ -70,6 +72,7 @@ public:
 		timeout = 15000;
 		deepsleeptimeout = 1800000000;
 		maxreadings = 3;
+		allowopen = false;
 	}
 
 	void setMyName(const String& name)
@@ -130,6 +133,8 @@ public:
 			can_sleep = json[CANSLEEP];
 		if (json.containsKey(MAXREADINGS))
 			maxreadings = json[MAXREADINGS];
+		if (json.containsKey(ALLOWOPEN))
+			allowopen = json[ALLOWOPEN];
 
 		if (json.containsKey(NETWORKS)){
 			JsonObject& jo = json[NETWORKS];
@@ -168,6 +173,7 @@ public:
 		json[TIMEOUT] = timeout;
 		json[CANSLEEP] = can_sleep;
 		json[MAXREADINGS] = maxreadings;
+		json[ALLOWOPEN] = allowopen;
 		JsonObject& data = json.createNestedObject(NETWORKS);
 		OTA.eachAP([](const String& ssid, const String& pw, void * ja){
 			(*(JsonObject*)ja)[ssid] = pw;

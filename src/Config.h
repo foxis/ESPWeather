@@ -71,7 +71,7 @@ public:
 #endif
 		}
 
-		OTA.allowOpen(true);
+		OTA.allowOpen(this->allowopen);
 
 		OTA.onConnect([](const String& ssid, EasyOTA::STATE state){
 			if (ConfigurationBase::instance->myName == "") {
