@@ -23,6 +23,7 @@ Websockets are used for telemetry transfer to the UI.
 * Report relative humidity
 * Report air pressure
 * Report battery voltage
+* Report light intensity (photoresistor)
 * Monitor and display several other station telemetry
 * Headless
 * OLED display
@@ -50,23 +51,52 @@ These have no user interface and are intended to be placed into various strange 
 
 ## OLED
 
+### Prototype
+
 ![OLED Weather Station variant](schematics/oled_proto.jpg)
 
 `ESP_WEATHER_VARIANT_OLED` must be enabled in `wificonfig.h` for that option before building. It will use a SSD1306 128x64 .96" OLED display and will display current telemetry info except for battery.
 
+### Revision 1.0
+
+![OLED Weather Station variant rev1.0](schematics/oled-front-rev1.0.jpg)
+
 ## E-Paper
+
+### Prototype
 
 `ESP_WEATHER_VARIANT_EPAPER` must be enabled in `wificonfig.h` for that option. `ESP_WEATHER_VARIANT_OLED` and `ESP_WEATHER_VARIANT_EPAPER` are mutually exclusive and the latter is only available when using ESP-12 module as SPI interface is required for it's operation. ESP-1 does not have enough pins for this feature.
 
-![OLED Weather Station variant](schematics/ESPWeather_back.jpg)
+![EPaper Weather Station variant](schematics/ESPWeather_back.jpg)
 
 Please note, that for other variants esp01_1m board is used. E-Paper variant uses d1_mini board. I had some random issues flashing ESP-12 using esp01_1m board either via serial upload or OTA. Also, since RX and TX pins are used for I2C communication to the BMP280 sensor, once it is soldered OTA programming might be the only option.
 
 The most desirable feature of this variant is that the display is so wide it can fit four readings. Station names that this variant can display are configured using `{station name}/name` MQTT message as described in relevant section below. First column is always the current station and three other are configurable.
 
+### Revision 1.0
+
+![EPaper Weather Station variant rev1.0](schematics/epd-front-rev1.0.jpg)
+![EPaper Weather Station variant rev1.0](schematics/epd-back-rev1.0.jpg)
+
 ## UI
 
 TODO
+
+# Versions
+## Prototypes
+
+Prototypes mainly use breakout boards and wires to connect stuff together. Additionally prototypes use `DHT11` and `BMP280` for
+humidity and temperature/pressure respectively. They also use a divider across battery input to read battery voltage.
+
+## Revision 1.0
+
+This revision is the first version of the boards. Changes are - an analog switch to read battery voltage and photoresistor value.
+Additionally boards use `BME280` for humidity/temperature/pressure readings. Boards were designed with 200mA 3.3 regulator which proved to be insufficient even with beefier capacitors.
+
+## Revision 1.2
+
+This revision removes reset button, rearranges location of analog switch, adds GPIO0 pin to the OLED header for easier programming, more capable voltage regulator and more capacitors. Also there is a pullup for GPIO0.
+Additionally the `BME280` sensor ir better isolated from the main board by a cutout. The board itself is smaller.
 
 # Building
 
@@ -97,7 +127,7 @@ Cases for these can be 3D printed. TODO.
 
 * Rx is SCL
 * Tx is SDA
-* GPIO 2 is 1-Wire interface for DHT11
+* GPIO 2 is 1-Wire interface for DHT11 (for prototypes) and an input to analog switch (for boards)
 * GPIO 13, 14, 15, 5, 12, 4 are for EPD signals: DIN, CLK, CS, DC, RST, BUSY respectively
 * TOUT or ADC is for battery monitoring and connected to battery input via 1/10 voltage divider (ADC can measure up to 1.0V, so this scale factor is quite convenient)
 * sourced on Ebay: DHT11 for ESP-1S module, BMP280 board, TP4050 lipo micro-usb charger board, SSD1306 and 2.13" RPI-Zero E-Paper HAT (Waveshare)
