@@ -85,7 +85,7 @@ public:
 
 			if (light >= LIGHT_THRESHOLD) {
 				pinMode(DIVIDER_SELECTOR, OUTPUT);
-				digitalWrite(DIVIDER_SELECTOR, LOW); 
+				digitalWrite(DIVIDER_SELECTOR, LOW);
 				light = LIGHT_THRESHOLD + readAnalog(LIGHT_2_DIVIDER_COEFFICIENT, 20, true) - LIGHT_BIAS;
 				pinMode(DIVIDER_SELECTOR, INPUT);
 				digitalWrite(DIVIDER_SELECTOR, LOW); // no pullup

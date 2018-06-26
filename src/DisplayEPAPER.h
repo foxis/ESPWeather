@@ -73,7 +73,11 @@ public:
 	}
 
 	virtual void end() {
+		pinMode(5, OUTPUT);
+		digitalWrite(5, LOW);
 		displayLines();
+		pinMode(5, INPUT);
+		digitalWrite(5, LOW); // no pullup
 	}
 
 	void clear()
