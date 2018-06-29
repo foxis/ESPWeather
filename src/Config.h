@@ -59,10 +59,12 @@ public:
 
 		display.publish_status("Initializing");
 
-		if (!loadConfig())
+//		if (!loadConfig())
 		{
 			// Default config
+#if defined(WIFI_SSID)
 			OTA.addAP(WIFI_SSID, WIFI_PASSWORD);
+#endif
 #if defined(WIFI_SSID1)
 			OTA.addAP(WIFI_SSID1, WIFI_PASSWORD1);
 #endif
