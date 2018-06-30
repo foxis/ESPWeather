@@ -1,0 +1,159 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MQTT Data - Real Time</title>
+<style type="text/css">
+
+</style>
+
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+<script src="dygraph-combined-dev.js"></script>
+<script src="mqttws31.js" type="text/javascript"></script>
+<script type="text/javascript">
+
+
+	/*
+by @bordignon on twitter Feb 2014
+Adapted for Dycharts by Malcolm Yeoman
+Refactored for multiple device readings by FoxIS
+*/
+
+//settings BEGIN
+	var MQTTbroker = 'm23.cloudmqtt.com';
+	var MQTTport =36769;
+	var MQTTUser = "";
+	var MQTTPassw = "";
+//settings END
+	var devices = ['OLED', 'outside', 'mobile', 'paper', '8285', 'voutside'];
+	var readings = ['temperature', 'pressure', 'humidity', 'light', 'battery'];
+
+	var chart = {}; // global variable for chart
+    var data = {};
+	var g = {};
+	
+//mqtt broker 
+	var client = new Paho.MQTT.Client(MQTTbroker, MQTTport,
+				"myclientid_" + parseInt(Math.random() * 100, 10));
+	client.onMessageArrived = onMessageArrived;
+	client.onConnectionLost = onConnectionLost;	
+
+//mqtt connecton options including the mqtt broker subscriptions
+	var options = {
+		timeout: 3,
+		useSSL: true,
+		userName: MQTTUser,
+		password: MQTTPassw,
+		cleanSession: true,
+		onSuccess: function () {
+			console.log("mqtt connected");
+			// Connection succeeded; subscribe to our topics
+			devices.forEach(device => {
+				readings.forEach(reading => {
+					var path = device + "/" + reading;
+					client.subscribe(path, {qos: 1});
+				});
+			});
+		},
+		onFailure: function (message) {
+			console.log("Connection failed, ERROR: " + message.errorMessage);
+			//window.setTimeout(location.reload(),20000); //wait 20seconds before trying to connect again.
+		}
+	};
+
+//can be used to reconnect on connection lost
+	function onConnectionLost(responseObject) {
+		console.log("connection lost: " + responseObject.errorMessage);
+		window.setTimeout(location.reload(),20000); //wait 20seconds before trying to connect again.
+	};
+
+	function joinData(what) {
+		var keys = devices.map(function(e, i) { return e + "/" + what; });
+		
+		var d = {};
+		keys.forEach(function(key, i) {
+			data[key].forEach(function(e, j) {
+				if (!(e[0] in d)) 
+					d[e[0]] = [e[0], null, null, null, null, null];
+				
+				d[e[0]][i+1] = e[1];
+			});
+		});
+		
+		return Object.keys(d).map(key => {
+			return d[key];
+		}).sort();
+	}
+
+//what is done when a message arrives from the broker
+	function onMessageArrived(message) {
+		//console.log(message.destinationName, '',message.payloadString);
+		
+		var x = new Date();  // current time
+		var thenum = parseFloat(message.payloadString.replace( /^\D+/g, '')); //remove any text spaces from the message
+
+		data[message.destinationName].push([x,thenum]);
+		data[message.destinationName].shift();
+				
+		readings.forEach(reading => {
+			var t = joinData(reading);
+			g[reading].updateOptions( { 'file': t } );
+		})
+	};
+
+//check if a real number	
+	function isNumber(n) {
+	  return !isNaN(parseFloat(n)) && isFinite(n);
+	};
+
+//function that is called once the document has loaded
+	function init() {
+	
+		// Connect to MQTT broker
+		client.connect(options);
+
+	};
+
+//settings for the chart
+	$(document).ready(function() {
+	  var t = new Date();
+	  
+	devices.forEach(device => {
+		readings.forEach(reading => {
+			var path = device + "/" + reading;
+			chart[reading] = null;
+			g[reading] = null;
+			data[path] = [];
+		});
+	});
+	  
+      for (var i = 100; i >= 0; i--) {
+        var x = new Date(t.getTime() - i * 1000);
+
+		devices.forEach(device => readings.forEach(reading => data[device + "/" + reading].push([x, 0])));
+     }
+			
+	  readings.forEach(reading => {
+		  g[reading] = new Dygraph(document.getElementById("div_" + reading), joinData(reading),
+							  {
+								drawPoints: true,
+								showRoller: false,
+								ylabel: reading,
+								connectSeparatedPoints: true,
+							    labels: ['Time'].concat(devices)
+							  });
+	  });
+
+    }
+);
+
+</script>
+</head>
+<body onload="init();"><!--Start the javascript ball rolling and connect to the mqtt broker-->
+
+</p><div id="div_temperature" style="width:90%"></div>
+<div id="div_pressure"  style="width:90%"></div>
+<div id="div_humidity"  style="width:90%"></div>
+<div id="div_light"  style="width:90%"></div>
+<div id="div_battery"  style="width:90%"></div>
+</body>
+</html>
