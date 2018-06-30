@@ -95,15 +95,15 @@ public:
 
 			// Read BME280 measurements
 			BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
-	    BME280::PresUnit presUnit(BME280::PresUnit_Pa);
+	    	BME280::PresUnit presUnit(BME280::PresUnit_Pa);
 
-	    bme.read(psi, temp, humi, tempUnit, presUnit);
+	    	bme.read(psi, temp, humi, tempUnit, presUnit);
 
 			// NOTE: Will perform humidity and battery voltage measurements up til now
 			if (_temperature == 0) {
-				_pressure = psi * 2;
-				_temperature = temp * 2;
-				_humidity = humi * 2;
+				_pressure = psi;
+				_temperature = temp;
+				_humidity = humi;
 				_send = true;
 			} else {
 				_pressure += psi;

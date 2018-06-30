@@ -21,7 +21,6 @@
 #include "DisplayBase.h"
 #include <GxEPD.h>
 #include <GxGDEW0213Z16/GxGDEW0213Z16.cpp>  // 2.13" b/w/r
-#include <GxGDEW042T2_FPU/GxGDEW042T2_FPU.cpp>      // 4.2" b/w
 #include <GxIO/GxIO_SPI/GxIO_SPI.cpp>
 #include <GxIO/GxIO.cpp>
 
@@ -159,7 +158,7 @@ private:
 			display.setCursor(16 + index * 50, 16 + 16 * 5);
 			sprintf(str, "%.2f", I->second.battery);
 			display.print(str);
-			if (++index > 4)
+			if (++index > 3)
 				break;
 			I++;
 		}
