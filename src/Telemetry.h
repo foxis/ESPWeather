@@ -23,15 +23,15 @@
 
 #define SENSOR_SWITCH 2
 #define DIVIDER_SELECTOR 5
-#define _R9 100.0
-#define _R8 5.0
-#define _R5 240.0
-#define _R4 59.0
+#define _R7 100.0
+#define _R8 4.99
+#define _R6 249.0
+#define _R5 51.0
 #define LIGHT_THRESHOLD .5
-#define BATTERY_DIVIDER_COEFFICIENT (1.0 / (_R4 / (_R5 + _R4)))
+#define BATTERY_DIVIDER_COEFFICIENT (1.0 / (_R5 / (_R5 + _R6)))
 #define LIGHT_1_DIVIDER_COEFFICIENT (1.0 / (1.0))
 #define LIGHT_2_DIVIDER_COEFFICIENT (1.0 / (1.0))
-#define LIGHT_BIAS (3.3 * _R8 / (_R8 + (3.3 - LIGHT_THRESHOLD) * _R9 / LIGHT_THRESHOLD))
+#define LIGHT_BIAS (3.3 * _R8 / (_R8 + (3.3 - LIGHT_THRESHOLD) * _R7 / LIGHT_THRESHOLD))
 // These will come from EasyOTA
 //#define GETTER(T, name) T name() { return _##name; }
 //#define SETTER(T, name) T name(T name) { T pa##name = _##name; _##name = name; return pa##name; }
