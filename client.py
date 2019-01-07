@@ -49,6 +49,28 @@ class UserData(object):
         self.lock = thrd.Lock()
         self.readings = {station: {topic: [] for topic in topics} for station in stations}
         self.plots = None
+        self._connected = False
+        self._last_connected = False
+
+    @property
+    def connected(self):
+        with self.lock:
+            return self._connected
+
+    @connected.setter
+    def connected(self, value):
+        with self.lock:
+            self._connected = value
+
+    @property
+    def last_connected(self):
+        with self.lock:
+            return self._last_connected
+
+    @last_connected.setter
+    def connected(self, value):
+        with self.lock:
+            self._last_connected = value
 
     def add_reading(self, station, topic, data):
         with self.lock:
@@ -95,6 +117,9 @@ class UserData(object):
         plots['fig'].suptitle(station)
         for topic in topics:
             plots[topic]['plot'].set_ylabel(topic)
+            #plots[topic]['plot'].relim()
+            #plots[topic]['plot'].autoscale_view(True,True,True)
+            #plots[topic]['plot'], = plots[topic]['plot'].plot([], [])
         return plots
 
     def plot_reading(self, station, topic, data):
@@ -110,7 +135,7 @@ class UserData(object):
         self.plots[station][topic]['x'] = self.plots[station][topic]['x'][-30:]
         self.plots[station][topic]['y'] = self.plots[station][topic]['y'][-30:]
 
-
+        self.plots[station][topic]['plot'].clear()
         self.plots[station][topic]['plot'].plot(
             self.plots[station][topic]['x'],
             self.plots[station][topic]['y'])
@@ -118,6 +143,7 @@ class UserData(object):
 
 def on_disconnect(client, userdata, rc):
     print("Disconnected %i" % rc)
+    userdata.connected = False
 
 
 def on_connect(client, userdata, flags, rc):
@@ -126,6 +152,8 @@ def on_connect(client, userdata, flags, rc):
         for topic in userdata.topics:
             for station in userdata.stations:
                 client.subscribe("{}/{}".format(station, topic))
+        userdata.connected = True
+        userdata.last_connected = True
         
 
 def on_message(client, userdata, message):
@@ -161,8 +189,11 @@ def main(name, username, password, url, port, stations, topics, filename, verbos
     else:
         while True:
             client.loop()
-            plt.show(False)
-            plt.pause(0.01)        
+            plt.draw()
+            plt.pause(0.01)
+            if not userdata.connected and userdata.last_connected:
+                userdata.last_connected = False
+                client.connect(url, port)
         
 
 if __name__ == "__main__":
