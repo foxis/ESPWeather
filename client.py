@@ -34,10 +34,14 @@ optional arguments:
 import paho.mqtt.client as mqtt
 import argparse
 from datetime import datetime
-import matplotlib.pyplot as plt
 import os
 import threading as thrd
 
+try:
+    import matplotlib.pyplot as plt
+    matplotlib_available = True
+except :
+    matplotlib_available = False
 
 class UserData(object):
     def __init__(self, filename, topics, stations, verbose, plot):
@@ -117,9 +121,6 @@ class UserData(object):
         plots['fig'].suptitle(station)
         for topic in topics:
             plots[topic]['plot'].set_ylabel(topic)
-            #plots[topic]['plot'].relim()
-            #plots[topic]['plot'].autoscale_view(True,True,True)
-            #plots[topic]['plot'], = plots[topic]['plot'].plot([], [])
         return plots
 
     def plot_reading(self, station, topic, data):
@@ -162,18 +163,13 @@ def on_message(client, userdata, message):
     try:
         userdata.add_reading(station, topic, data)
     except Exception as e:
-        print "Exception occured: %s" % repr(e)
+        print("Exception occured: %s" % repr(e))
 
 
 def main(name, username, password, url, port, stations, topics, filename, verbose, plot):
 
     userdata = UserData(filename, topics, stations, verbose, plot)
 
-    """userdata.add_reading('pirmas', 'temperature', '17.0')
-    userdata.add_reading('pirmas', 'battery', '17.0')
-    userdata.add_reading('pirmas', 'pressure', '17.0')
-    userdata.add_reading('pirmas', 'humidity', '17.0')
-    """
     client = mqtt.Client(name, userdata=userdata)
     client.username_pw_set(username, password)
     client.connect(url, port)
@@ -219,8 +215,8 @@ if __name__ == "__main__":
                         help="CSV file to write readings to (default {client name}.csv)")
     parser.add_argument("-v", "--verbose", const=True, default=False, action='store_const',
                         help="Verbose output to stdout")
-    parser.add_argument("-g", "--plot", const=True, default=False, action='store_const',
-                        help="Plot graphs of the readings")
+    parser.add_argument("-g", "--plot", const=matplotlib_available, default=False, action='store_const',
+                        help="Plot graphs of the readings (matplotlib importable=%s)"%str(matplotlib_available))
     args = parser.parse_args()
 
     filename = args.file if args.file else "{}.csv".format(args.name)
