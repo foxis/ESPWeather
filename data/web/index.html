@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="ESP8266 Weather Station">
+    <meta name="author" content="FoxIS <andrius.mikonis@gmail.com">
+    <!-- <link rel="icon" href="favicon.ico"> -->
+
+    <title>ESP Weather Station 2018 (c) FoxIS</title>
+
+		<style>
+		/*
+		 * Creative Animated Loading icon in HTML5 CSS3
+		 */
+		 #loading {
+		     background-color: #fff;
+		     height: 100%;
+		     left: 0;
+		     position: fixed;
+		     top: 0;
+				 opacity: .5;
+		     width: 100%;
+		     z-index: 10000;
+		 }
+		 .osahanloading {
+		     animation: 1.5s linear 0s normal none infinite running osahanloading;
+		     background: #fed37f none repeat scroll 0 0;
+		     border-radius: 50px;
+		     height: 50px;
+		     left: 50%;
+		     margin-left: -25px;
+		     margin-top: -25px;
+		     position: absolute;
+		     top: 50%;
+		     width: 50px;
+		 }
+		 .osahanloading::after {
+		     animation: 1.5s linear 0s normal none infinite running osahanloading_after;
+		     border-color: #85d6de transparent;
+		     border-radius: 80px;
+		     border-style: solid;
+		     border-width: 10px;
+		     content: "";
+		     height: 80px;
+		     left: -15px;
+		     position: absolute;
+		     top: -15px;
+		     width: 80px;
+		 }
+		 @keyframes osahanloading {
+		 0% {
+		     transform: rotate(0deg);
+		 }
+		 50% {
+		     background: #85d6de none repeat scroll 0 0;
+		     transform: rotate(180deg);
+		 }
+		 100% {
+		     transform: rotate(360deg);
+		 }
+		 }
+		</style>
+
+		<script>
+			function loadResource(url){
+			    return new Promise(function(resolve, reject) {
+			        var resource = document.createElement(url.endsWith(".js") ? "script" : "link")
+			        resource.type = url.endsWith(".js") ? "text/javascript" : "text/css";
+
+			        if (resource.readyState){  //IE
+			            resource.onreadystatechange = function(){
+			                if (resource.readyState == "loaded" ||
+			                        resource.readyState == "complete"){
+			                    resource.onreadystatechange = null;
+			                    resolve();
+			                }
+			            };
+			        } else {  //Others
+			            resource.onload = function(){
+			                resolve();
+			            };
+			        }
+
+							if (url.endsWith(".css")) {
+								resource.rel = "stylesheet";
+								resource.href = url;
+							} else {
+								resource.src = url;
+							}
+
+			        document.getElementsByTagName("head")[0].appendChild(resource);
+			    });
+			}
+
+			var resources = [
+				"bootstrap.min.css",
+				"espweather.css",
+				"jquery-3.3.1.min.js",
+				"bootstrap.min.js"
+			]
+
+			function loadAllResources() {
+			   return resources.reduce(function(prev, current) {
+			    return prev.then(function() {
+			      return loadResource(current);
+			    });
+			  }, Promise.resolve());
+			}
+
+			loadAllResources().then(function() {
+				page_is_ready();
+			});
+
+			function get_url(url, proto="http")
+			{
+				// relevant when developing locally without uploading SPIFFS
+				var ip = '://192.168.4.1/'
+
+				if (window.location.hostname != "" && window.location.hostname != "localhost")
+					ip = "://" + window.location.hostname + '/';
+
+				return proto + ip + url;
+			}
+
+			function checkInt(value, min, max) {
+			  return !isNaN(value) &&
+			         parseInt(Number(value)) == value &&
+			         !isNaN(parseInt(value, 10)) && value <= max && value >= min;
+			}
+			function validate_field(field, validator, min, max) {
+				value = field.val();
+				field.removeClass("is-invalid");
+				field.addClass("is-valid");
+				if (validator != null) {
+					if (!validator(value, min, max)) {
+						field.removeClass("is-valid");
+						field.addClass("is-invalid");
+						return null;
+					}
+				}
+				return value;
+			}
+			function checkEmpty(value) {
+				return value != null && value != "";
+			}
+			function page_is_ready() {
+				$('#sidebarCollapse').on('click', function () {
+					$('#sidebar').toggleClass('active');
+				});
+
+				$('a[data-toggle="tab"]').on('show.bs.tab', function (e) {
+					if (e.target.id == "nav-setup-tab"){
+						load_setup();
+					} else if (e.target.id == "nav-license-tab") {
+						$("#license-code").load("LICENSE.txt");
+					}
+					$(".sidebar").toggleClass("active");
+				});
+				$("#loading").fadeOut(100);
+
+				setTimeout(get_readings, 1000);
+
+				$("#config-save").click(function() {
+					config.serverName = validate_field($("#serverName"), checkEmpty);
+					config.mqtt_user = $("#mqtt_user").val();
+					config.mqtt_password = $("#mqtt_password").val();
+					config.mqtt_port = parseInt(validate_field($("#mqtt_port"), checkInt, 1, 65535));
+					config.mqtt_url = $("#mqtt_url").val();
+
+					config.deepsleeptimeout = parseInt(validate_field($("#deepsleeptimeout"), checkInt, 10, 20000)) * 1000000;
+					config.timeout = parseInt(validate_field($("#timeout"), checkInt, 3, 60)) * 1000;
+					//$("#cansleep").val(data.cansleep);
+					config.maxreadings = parseInt(validate_field($("#maxreadings"), checkInt, 3, 50));
+
+					// Due to some ESP module limitations, only one Wifi network is supported
+					config.networks[$("#SSID").val()] = $("#PSK").val();
+
+					 $.ajax({
+						 method: "POST",
+						 dataType: "json",
+						 url: get_url("config"),
+						 data: JSON.stringify(config, null, 1),
+						 contentType: "application/json; charset=utf-8",
+						 success: function(data) {
+							 alert("Configuration saved successfully !");
+						 },
+						 error: function(data) {
+							 alert("ERROR: failed saving configuration !");
+						 }
+					 });
+				});
+
+				$("#config-load").click(function() {
+					config = null;
+					load_setup();
+				});
+
+				$("#config-reboot").click(function() {
+					$.ajax({
+						method: "GET",
+						dataType: "json",
+						retry_count: 3,
+						url: get_url("reboot")});
+				});
+			}
+
+			var config = null;
+
+			function load_setup() {
+				$.ajax({
+					method: "GET",
+					dataType: "json",
+					retry_count: 3,
+					url: get_url("config"),
+					success: function(data) {
+						config = data;
+						$("#serverName").val(data.serverName);
+						$("#mqtt_user").val(data.mqtt_user);
+						$("#mqtt_password").val(data.mqtt_password);
+						$("#mqtt_port").val(data.mqtt_port);
+						$("#mqtt_url").val(data.mqtt_url);
+
+						$("#deepsleeptimeout").val(data.deepsleeptimeout / 1000000);
+						$("#timeout").val(data.timeout / 1000);
+						//$("#cansleep").val(data.cansleep);
+						$("#maxreadings").val(data.maxreadings);
+
+						// Due to some ESP module limitations, only one Wifi network is supported
+						$.each(data.networks, function(ssid, psk){
+							$("#SSID").val(ssid);
+							$("#PSK").val(psk);
+	 				  });
+					},
+					error: function(data) {
+					 //
+					}
+				});
+			}
+
+
+			function get_readings() {
+				$.ajax({
+					 method: "GET",
+					 dataType: "json",
+					 retry_count: 3,
+					 url: get_url("readings"),
+					 success: function(data) {
+						 $("#temperature").text(data.temperature);
+						 $("#humidity").text(data.humidity);
+						 $("#pressure").text(data.pressure);
+						 $("#light").text(data.light);
+						 $("#battery").text(data.battery);
+					 },
+					 error: function(data) {
+					 }
+				});
+				setTimeout(get_readings, 1000);
+			}
+		</script>
+  </head>
+
+  <body>
+		<div id="loading">
+				<div class="osahanloading"></div>
+		</div>
+
+    <nav class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0">
+			<a class="navbar-brand col-sm-1 col-md-1 mr-0" href="#" id="sidebarCollapse"><span class="fas fa-bars"></span> ESP Weather</a>
+    </nav>
+
+    <div class="container-fluid">
+      <div class="row">
+        <nav class="col-md-1 d-none d-md-block bg-light sidebar" id="sidebar">
+          <div class="sidebar-sticky">
+            <ul class="nav nav-tabs flex-column" id="nav-tab" role="tablist">
+							<li class="nav-item">
+								<a class="nav-link" href="#nav-readings" id="nav-readings-tab" data-toggle="tab" role="tab" aria-controls="nav-readings" aria-selected="true">
+                  Readings
+                </a>
+              </li>
+
+							<li class="nav-item">
+								<a class="nav-link" href="#nav-setup" id="nav-setup-tab" data-toggle="tab" role="tab" aria-controls="nav-setup" aria-selected="false">
+                  Setup
+                </a>
+              </li>
+
+							<li class="nav-item">
+								<a class="nav-link" href="#nav-license" id="nav-license-tab" data-toggle="tab" role="tab" aria-controls="nav-license" aria-selected="false">
+                  License
+                </a>
+              </li>
+            </ul>
+
+          </div>
+        </nav>
+
+        <main role="main" class="col-md-11 ml-sm-auto col-lg-11 pt-3 px-4">
+					<div class="tab-content" id="nav-tabContent">
+						<!--                             Readings                                                 -->
+					  <div class="tab-pane fade show active" id="nav-readings" role="tabpanel" aria-labelledby="nav-readings-tab">
+							<p>Temperature: <span id="temperature"></span> C</p>
+							<p>Humidity: <span id="humidity"></span> %</p>
+							<p>Air Pressure: <span id="pressure"></span> Pa</p>
+							<p>Light: <span id="light"></span></p>
+							<p>Battery: <span id="battery"></span> V</p>
+						</div>
+						<!--                             Setup                                                 -->
+					  <div class="tab-pane fade" id="nav-setup" role="tabpanel" aria-labelledby="nav-setup-tab">
+							<form id="config-form">
+								<!--   WIFI Networks tab     -->
+								<div class="card"><div class="card-header">WiFi networks</div>
+								  <div class="form-row align-items-center">
+										<div class="form-group col-md-5">
+											<label for="ssid">WiFi SSID</label>
+											<input type="text" class="form-control field-ssid" id="ssid" placeholder="SSID">
+											<div class="invalid-tooltip">Must not be empty!</div>
+										</div>
+										<div class="form-group col-md-6">
+											<label for="psk">PSK</label>
+											<input type="password" class="form-control field-psk" id="psk" placeholder="WiFi Password">
+										</div>
+								  </div>
+								</div>
+
+								<!--   MQTT tab     -->
+								<div class="card"><div class="card-header">MQTT</div>
+									<div class="form-row align-items-center">
+										<div class="form-group col-md-5">
+											<label for="mqtt_user">MQTT User</label>
+											<input type="text" class="form-control" id="mqtt_user" placeholder="Username">
+											<div class="invalid-tooltip">Must not be empty!</div>
+										</div>
+										<div class="form-group col-md-6">
+											<label for="mqtt_password">Password</label>
+											<input type="password" class="form-control" id="mqtt_password" placeholder="Password">
+										</div>
+									</div>
+									<div class="form-row align-items-center">
+										<div class="form-group col-md-5">
+											<label for="mqtt_url">MQTT Server</label>
+											<input type="text" class="form-control" id="mqtt_url" placeholder="m23.cloudmqtt.com">
+											<div class="invalid-tooltip">Must not be empty!</div>
+										</div>
+										<div class="form-group col-md-6">
+											<label for="mqtt_port">Port number</label>
+											<input type="text" class="form-control" id="mqtt_port" placeholder="16769">
+											<div class="invalid-tooltip">Must be integer between 1 and 65535!</div>
+										</div>
+									</div>
+								</div>
+
+								<!--   General config tab     -->
+								<div class="card">
+									<div class="card-header">General config</div>
+									<div class="form-row align-items-center">
+										<div class="form-group col-md-5">
+											<label for="serverName">Weather Station Name</label>
+											<input type="text" class="form-control" id="serverName" placeholder="ESPWeather">
+											<div class="invalid-tooltip">Must not be empty!</div>
+										</div>
+									</div>
+									<div class="form-row align-items-center">
+										<div class="form-group col-md-5">
+											<label for="maxreadings">Go to sleep after N MQTT messages</label>
+											<input type="text" class="form-control" id="maxreadings" placeholder="3">
+											<div class="invalid-tooltip">Must be integer between 3 and 50!</div>
+										</div>
+									</div>
+									<div class="form-row align-items-center">
+										<div class="form-group col-md-5">
+											<label for="timeout">Timeout in seconds to go to sleep</label>
+											<input type="text" class="form-control" id="timeout" placeholder="15">
+											<div class="invalid-tooltip">Must be integer between 3 and 60!</div>
+										</div>
+									</div>
+									<div class="form-row align-items-center">
+										<div class="form-group col-md-5">
+											<label for="deepsleeptimeout">Deep Sleep period in seconds</label>
+											<input type="text" class="form-control" id="deepsleeptimeout" placeholder="1800">
+											<div class="invalid-tooltip">Must be integer between 3 and 20000!</div>
+										</div>
+									</div>
+								</div>
+
+								<div class="form-row">
+									<div class="form-group col-md-6">
+							      <button type="button" class="btn btn-outline-primary" id="config-save"><span class="fas fa-upload"></span> Save config</button>
+										<button type="button" class="btn btn-outline-secondary" id="config-load"><span class="fas fa-download"></span> Reload config</button>
+										<button type="button" class="btn btn-outline-danger" id="config-reboot"><span class="fas fa-sync"></span> Reboot</button>
+							    </div>
+								</div>
+							</form>
+						</div>
+
+						<!--                             License                                                 -->
+						<div class="tab-pane fade" id="nav-license" role="tabpanel" aria-labelledby="nav-license-tab">
+							<pre id="license-code"></pre>
+						</div>
+					</div>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
