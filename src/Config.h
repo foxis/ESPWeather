@@ -59,19 +59,7 @@ public:
 
 		display.publish_status("Initializing");
 
-//		if (!loadConfig())
-		{
-			// Default config
-#if defined(WIFI_SSID)
-			OTA.addAP(WIFI_SSID, WIFI_PASSWORD);
-#endif
-#if defined(WIFI_SSID1)
-			OTA.addAP(WIFI_SSID1, WIFI_PASSWORD1);
-#endif
-#if defined(WIFI_SSID2)
-			OTA.addAP(WIFI_SSID2, WIFI_PASSWORD2);
-#endif
-		}
+		loadConfig();
 
 		OTA.allowOpen(this->allowopen);
 
@@ -84,30 +72,45 @@ public:
 
 		mqtt.begin();
 
-		server.serveStatic("/", SPIFFS, "/web").setDefaultFile("index.html");
-		server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request) {
-			request->send(200, "text/plain", String(ESP.getFreeHeap()));
-		});
-		server.on("/keepalive", HTTP_GET, [](AsyncWebServerRequest *request) {
-			request->send(200, "text/plain", String("OK"));
-			ConfigurationBase::instance->keepalive();
-		});
-		server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request) {
-			AsyncWebServerResponse *response = request->beginResponse(SPIFFS, CONFIG_FILE);
-			//request->send(SPIFFS, "/profiles.json");
-			response->addHeader("Access-Control-Allow-Origin", "*");
-			response->addHeader("Access-Control-Allow-Methods", "GET");
-			response->addHeader("Content-Type", "application/json");
-			request->send(response);
-		});
-		server.on("/config", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-			ConfigurationBase::instance->save_file(request, CONFIG_FILE, data, len, index, total);
-		});
-		server.onNotFound([](AsyncWebServerRequest *request) { request->send(404); });
-		server.begin();
+		if (!woke_up) {
+			server.serveStatic("/", SPIFFS, "/web").setDefaultFile("index.html");
+			server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request) {
+				request->send(200, "text/plain", String(ESP.getFreeHeap()));
+			});
+			server.on("/reboot", HTTP_GET, [](AsyncWebServerRequest *request) {
+				request->send(200, "text/plain", String("OK"));
+				ConfigurationBase::instance->restart();
+			});
+			server.on("/readings", HTTP_GET, [](AsyncWebServerRequest *request) {
+				ConfigurationBase::instance->keepalive();
+				StaticJsonBuffer<200> buf;
+				String json;
+				JsonObject &obj = buf.createObject();
+				obj["temperature"] = ConfigurationBase::instance->telemetry._temperature;
+				obj["humidity"] = ConfigurationBase::instance->telemetry._humidity;
+				obj["pressure"] = ConfigurationBase::instance->telemetry._pressure;
+				obj["light"] = ConfigurationBase::instance->telemetry._light;
+				obj["battery"] = ConfigurationBase::instance->telemetry._battery;
+				obj.printTo(json);
+				request->send(200, "application/json", json);
+			});
+			server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request) {
+				AsyncWebServerResponse *response = request->beginResponse(SPIFFS, CONFIG_FILE);
+				response->addHeader("Access-Control-Allow-Origin", "*");
+				response->addHeader("Access-Control-Allow-Methods", "GET");
+				response->addHeader("Content-Type", "application/json");
+				request->send(response);
+			});
+			server.on("/config", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+				ConfigurationBase::instance->save_file(request, CONFIG_FILE, data, len, index, total);
+				ConfigurationBase::instance->loadConfig();
+			});
+			server.onNotFound([](AsyncWebServerRequest *request) { request->send(404); });
+			server.begin();
+		}
 
 		last_m = millis();
-}
+	}
 
 	void loop(unsigned long now)
 	{
@@ -116,8 +119,9 @@ public:
 		telemetry.loop(now);
 		display.loop(now);
 
-		// Sleep after so much seconds
-		if (can_sleep && now - last_m > this->timeout || this->maxreadings && (mqtt.readings >= this->maxreadings))	{
+		// Sleep after so much seconds (timeout is in milliseconds)
+		unsigned int timeout = woke_up ? this->timeout : 5 * 60 * 1000;
+		if (can_sleep && now - last_m > timeout || this->maxreadings && (mqtt.readings >= this->maxreadings))	{
 			deepsleep();
 		}
 	}

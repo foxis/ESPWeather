@@ -17,6 +17,8 @@
 #ifndef MY_DISPLAY_BASE_H
 #define MY_DISPLAY_BASE_H
 
+#include <Arduino.h>
+
 class DisplayBase
 {
 public:

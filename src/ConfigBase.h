@@ -17,7 +17,20 @@
 #ifndef MY_CONFIG_BASE_H
 #define MY_CONFIG_BASE_H
 
-#include "wificonfig.h"
+#if defined(ESP_WEATHER_VARIANT_EPAPER)
+#define ARDUINO_HOSTNAME "ESPWeather-epaper"
+#elif defined(ESP_WEATHER_VARIANT_OLED)
+#define ARDUINO_HOSTNAME "ESPWeather-oled"
+#else
+// ESP_WEATHER_VARIANT_HEADLESS
+#define ARDUINO_HOSTNAME "ESPWeather"
+#endif
+
+#if defined(ESP_WEATHER_VARIANT_UI)
+#undef ARDUINO_HOSTNAME
+#define ARDUINO_HOSTNAME "ESPWeather-UI"
+#endif
+
 #include "DisplayBase.h"
 #include "TelemetryBase.h"
 
@@ -39,6 +52,11 @@
 #define CANSLEEP "cansleep"
 #define MAXREADINGS "maxreadings"
 #define ALLOWOPEN "allowopen"
+#define MQTT_USER "mqtt_user"
+#define MQTT_PASSWORD "mqtt_password"
+#define MQTT_PORT "mqtt_port"
+#define MQTT_URL "mqtt_url"
+#define MQTT_LISTEN_NAMES "mqtt_listen_names"
 #define SDA  1
 #define SCL 3
 // 3 RX
@@ -58,6 +76,12 @@ public:
 	unsigned long deepsleeptimeout;
 	int maxreadings;
 	bool allowopen;
+	String mqtt_user;
+	String mqtt_password;
+	String mqtt_url;
+	std::vector<String> mqtt_listen_names;
+	int mqtt_port;
+	bool woke_up;
 
 	unsigned long last_m;
 
@@ -73,6 +97,7 @@ public:
 		deepsleeptimeout = 1800000000;
 		maxreadings = 3;
 		allowopen = false;
+		woke_up = ESP.getResetInfoPtr()->reason == REASON_DEEP_SLEEP_AWAKE;
 	}
 
 	void setMyName(const String& name)
@@ -94,10 +119,6 @@ public:
 	}
 
 	bool loadConfig() {
-	#if defined(PUYA_ISSUE)
-		return false;
-	#endif
-
 		File configFile = SPIFFS.open(CONFIG_FILE, "r");
 	  if (!configFile) {
 	    return false;
@@ -118,7 +139,7 @@ public:
 	  }
 
 		if (json.containsKey(MY_NAME))
-	  	myName = String((const char *)json[MY_NAME]);
+	  	myName = json[MY_NAME].as<String>();
 		else
 		{
 			configFile.close();
@@ -135,6 +156,23 @@ public:
 			maxreadings = json[MAXREADINGS];
 		if (json.containsKey(ALLOWOPEN))
 			allowopen = json[ALLOWOPEN];
+
+		if (json.containsKey(MQTT_USER))
+			mqtt_user = json[MQTT_USER].as<String>();
+		if (json.containsKey(MQTT_PASSWORD))
+			mqtt_password = json[MQTT_PASSWORD].as<String>();
+		if (json.containsKey(MQTT_PORT))
+			mqtt_port = json[MQTT_PORT];
+		if (json.containsKey(MQTT_URL))
+			mqtt_url = json[MQTT_URL].as<String>();
+		if (json.containsKey(MQTT_LISTEN_NAMES)) {
+			JsonArray& ja = json[MQTT_LISTEN_NAMES];
+			JsonArray::iterator I = ja.begin();
+			while (I != ja.end()) {
+				mqtt_listen_names.push_back(*I);
+				++I;
+			}
+		}
 
 		if (json.containsKey(NETWORKS)){
 			JsonObject& jo = json[NETWORKS];
@@ -155,10 +193,6 @@ public:
 	}
 
 	bool saveConfig() {
-		#if defined(PUYA_ISSUE)
-			return false;
-		#endif
-
 		StaticJsonBuffer<1024> jsonBuffer;
 		File configFile = SPIFFS.open(CONFIG_FILE, "w");
 	  if (!configFile) {
@@ -174,6 +208,18 @@ public:
 		json[CANSLEEP] = can_sleep;
 		json[MAXREADINGS] = maxreadings;
 		json[ALLOWOPEN] = allowopen;
+		json[MQTT_USER] = mqtt_user;
+		json[MQTT_PASSWORD] = mqtt_password;
+		json[MQTT_PORT] = mqtt_port;
+		json[MQTT_URL] = mqtt_url;
+
+		JsonArray& arr = json.createNestedArray(MQTT_LISTEN_NAMES);
+		std::vector<String>::iterator I = mqtt_listen_names.begin();
+		while (I != mqtt_listen_names.end()) {
+			arr.add(*I);
+			++I;
+		}
+
 		JsonObject& data = json.createNestedObject(NETWORKS);
 		OTA.eachAP([](const String& ssid, const String& pw, void * ja){
 			(*(JsonObject*)ja)[ssid] = pw;
@@ -212,7 +258,7 @@ public:
 	virtual void deepsleep()
 	{
 		display.end();
-		ESP.deepSleep(this->deepsleeptimeout);
+		ESP.deepSleep(woke_up ? this->deepsleeptimeout : 1000000);
 	}
 
 	void keepalive() {

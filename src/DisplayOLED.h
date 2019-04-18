@@ -26,8 +26,8 @@
 
 class Display : public DisplayBase
 {
-	SSD1306 display;
 	ConfigurationBase& config;
+	SSD1306 display;
 	char _lines[LINES][LINE_LENGTH + 1] = {"Weather Station", "", "", ""};
 public:
 
@@ -40,6 +40,9 @@ public:
 	  display.clear();
 	  display.setFont(ArialMT_Plain_10);
 	  display.setColor(WHITE);
+
+		if (!config.woke_up)
+			displayLine((String("Reset reason: ") + String(ESP.getResetInfoPtr()->reason)).c_str(), -1);
 	}
 	virtual void end() {
 		publish_status("");

@@ -23,9 +23,10 @@
 class MQTT
 {
 	WiFiClient espClient;
-	PubSubClient client;
 	ConfigurationBase& config;
+	PubSubClient client;
 	bool announced;
+	bool initialized;
 	std::vector<String> listening;
 
 public:
@@ -36,11 +37,16 @@ public:
 		instance = this;
 		announced = false;
 		readings = 0;
+		initialized = false;
 	}
 
 	void begin() {
+		if (config.mqtt_url.length() == 0 || config.mqtt_user.length() == 0)
+			return;
+
 		// Setup MqttClient
-		client.setServer(MQTT_URL, MQTT_PORT);
+		client.setServer(config.mqtt_url.c_str(), config.mqtt_port);
+		initialized = true;
 		client.setCallback([](char* topic, byte* payload, unsigned int length) {
 			// This will receive MQTT configuration messages
 			char str[128] = "";
@@ -137,7 +143,7 @@ public:
 			}
 		} else {
 			if (config.telemetry._send) {
-				config.display.publish_status("No Wifi");
+				config.display.publish_status(config.woke_up ? "No Wifi" : "OTA / WebUI");
 				config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure, config.telemetry._light);
 				config.telemetry._send = false;
 			}
@@ -146,7 +152,7 @@ public:
 
 	void reconnect() {
 		String clientName = ARDUINO_HOSTNAME + String("-") + config.myName;
-		if (client.connect(clientName.c_str(), MQTT_ID, MQTT_PASSW)) {
+		if (client.connect(clientName.c_str(), config.mqtt_user.c_str(), config.mqtt_password.c_str())) {
 			// Once connected, subscribe to config topics
 			client.subscribe((config.myName + "/apadd").c_str());
 			client.subscribe((config.myName + "/apremove").c_str());
@@ -167,6 +173,9 @@ public:
 	}
 
 	void publish_telemetry() {
+		if (!initialized)
+			return;
+
     // Publish telemetry data...
 		client.publish((config.myName + "/temperature").c_str(), String(config.telemetry._temperature).c_str(), true);
 		client.publish((config.myName + "/battery").c_str(), String(config.telemetry._battery).c_str(), true);
