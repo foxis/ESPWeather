@@ -175,12 +175,14 @@ public:
 		}
 
 		if (json.containsKey(NETWORKS)){
-			JsonObject& jo = json[NETWORKS];
-			JsonObject::iterator I = jo.begin();
-			while (I != jo.end())
-			{
-				OTA.addAP(I->key, I->value);
-				++I;
+			if (woke_up) {
+				JsonObject& jo = json[NETWORKS];
+				JsonObject::iterator I = jo.begin();
+				while (I != jo.end())
+				{
+					OTA.addAP(I->key, I->value);
+					++I;
+				}
 			}
 		} else
 		{
