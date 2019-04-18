@@ -144,6 +144,9 @@
 			function checkEmpty(value) {
 				return value != null && value != "";
 			}
+
+			var readings_valid = true;
+
 			function page_is_ready() {
 				$('#sidebarCollapse').on('click', function () {
 					$('#sidebar').toggleClass('active');
@@ -151,15 +154,21 @@
 
 				$('a[data-toggle="tab"]').on('show.bs.tab', function (e) {
 					if (e.target.id == "nav-setup-tab"){
+						readings_valid = false;
 						load_setup();
 					} else if (e.target.id == "nav-license-tab") {
 						$("#license-code").load("LICENSE.txt");
+						readings_valid = false;
+					}
+					else {
+						setTimeout(get_readings, 3000);
 					}
 					$(".sidebar").toggleClass("active");
 				});
 				$("#loading").fadeOut(100);
 
-				setTimeout(get_readings, 1000);
+				setTimeout(get_readings, 3000);
+				load_setup();
 
 				$("#config-save").click(function() {
 					config.serverName = validate_field($("#serverName"), checkEmpty);
@@ -174,7 +183,7 @@
 					config.maxreadings = parseInt(validate_field($("#maxreadings"), checkInt, 3, 50));
 
 					// Due to some ESP module limitations, only one Wifi network is supported
-					config.networks[$("#SSID").val()] = $("#PSK").val();
+					config.networks[$("#ssid").val()] = $("#psk").val();
 
 					 $.ajax({
 						 method: "POST",
@@ -228,8 +237,8 @@
 
 						// Due to some ESP module limitations, only one Wifi network is supported
 						$.each(data.networks, function(ssid, psk){
-							$("#SSID").val(ssid);
-							$("#PSK").val(psk);
+							$("#ssid").val(ssid);
+							$("#psk").val(psk);
 	 				  });
 					},
 					error: function(data) {
@@ -255,7 +264,8 @@
 					 error: function(data) {
 					 }
 				});
-				setTimeout(get_readings, 1000);
+				if (readings_valid)
+					setTimeout(get_readings, 3000);
 			}
 		</script>
   </head>
