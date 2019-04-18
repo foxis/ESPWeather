@@ -17,6 +17,7 @@ Websockets are used for telemetry transfer to the UI.
 
 * mDNS
 * OTA
+* WebUI
 * Connect to free wifi or one of configured networks
 * MQTT Pub/Sub
 * Report temperature
@@ -165,8 +166,15 @@ By removing the blue LED current drops to ~400uA during deep sleep and the dead'
 
 # Configuration
 
-Please look at `sample_wificonfig.h` file, select relevant features, add default Wifi credentials, MQTT connection details and build after selecting appropriate board.
-Note, that wifi connection and MQTT are required if one wants to configure the station, e.g. changing the name or adding more access points.
+When you power up the board for the first time(given that it was flashed with firmware and SPIFFS) it will enter AP mode with the name e.g. `ESPWeather-oled`. You may connect to that AP
+and enter `192.168.4.1` in your browser. After the page loads, you will be able to see current readings of telemetry data.
+In the menu you can select Setup and License items. In the Setup page you will be presented with various settings: Wifi, MQTT, General timeout settings.
+After you are done configuring your Weather Station, you can save the config and reboot the device.
+Next time it will boot into normal operation and the WebUI will not be available.
+
+WebUI and AP mode is activated each time after power up or hard reset(including a soft reset after OTA update) and is active for 5 minutes unless a connection to the web page is made.
+
+NOTE: WebUI is a preferred way to configure the Weather Station as opposed to configuring via MQTT persistent messages.
 
 # Topics being published by the station
 
