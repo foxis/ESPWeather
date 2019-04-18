@@ -97,7 +97,7 @@ public:
 		deepsleeptimeout = 1800000000;
 		maxreadings = 3;
 		allowopen = false;
-		woke_up = ESP.getResetInfoPtr()->reason == REASON_DEEP_SLEEP_AWAKE;
+		woke_up = ESP.getResetInfoPtr()->reason != REASON_DEFAULT_RST && ESP.getResetInfoPtr()->reason != REASON_SOFT_RESTART;
 	}
 
 	void setMyName(const String& name)
@@ -270,7 +270,8 @@ public:
 	virtual void restart()
 	{
 		display.end();
-		ESP.restart();
+		ESP.deepSleep(1000000);
+		//ESP.restart();
 	}
 
 };
