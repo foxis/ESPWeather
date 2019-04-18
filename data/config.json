@@ -1,6 +1,11 @@
 {
 	"serverName": "",
 	"networks": [],
+	"mqtt_user": "",
+	"mqtt_password": "",
+	"mqtt_port": 16769,
+	"mqtt_url": "m23.cloudmqtt.com",
+	"mqtt_listen_names": [],
 	"deepsleeptimeout": 1800000000,
 	"timeout": 15000,
 	"cansleep": true,
