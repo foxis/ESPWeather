@@ -97,7 +97,7 @@ public:
 		deepsleeptimeout = 1800000000;
 		maxreadings = 3;
 		allowopen = false;
-		woke_up = ESP.getResetInfoPtr()->reason != REASON_DEFAULT_RST && ESP.getResetInfoPtr()->reason != REASON_SOFT_RESTART;
+		woke_up = ESP.getResetInfoPtr()->reason != REASON_DEFAULT_RST && ESP.getResetInfoPtr()->reason != REASON_SOFT_RESTART && ESP.getResetInfoPtr()->reason != REASON_EXT_SYS_RST;
 	}
 
 	void setMyName(const String& name)
