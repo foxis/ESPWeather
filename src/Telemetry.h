@@ -19,110 +19,79 @@
 
 #include "Config.h"
 #include "TelemetryBase.h"
-#include <BME280I2C.h>
+#include <vector>
 
-#define SENSOR_SWITCH 2
-#define DIVIDER_SELECTOR 5
-#define _R7 100.0
-#define _R8 4.99
-#define _R6 249.0
-#define _R5 51.0
-#define LIGHT_THRESHOLD .5
-#define BATTERY_DIVIDER_COEFFICIENT (1.0 / (_R5 / (_R5 + _R6)))
-#define LIGHT_1_DIVIDER_COEFFICIENT (1.0 / (1.0))
-#define LIGHT_2_DIVIDER_COEFFICIENT (1.0 / (1.0))
-#define LIGHT_BIAS (3.3 * _R8 / (_R8 + (3.3 - LIGHT_THRESHOLD) * _R7 / LIGHT_THRESHOLD))
-// These will come from EasyOTA
-//#define GETTER(T, name) T name() { return _##name; }
-//#define SETTER(T, name) T name(T name) { T pa##name = _##name; _##name = name; return pa##name; }
+#include <SensorBattery.h>
+#include <SensorPhoto.h>
+#include <SensorBME.h>
+#if defined(ESP_WEATHER_VARIANT_PRO)
+#include <SensorEvents.h>
+#include <SensorADC.h>
+#include <SensorUV.h>
+#endif
+
 
 class Telemetry : public TelemetryBase
 {
-	BME280I2C bme;
 	ConfigurationBase& config;
 	unsigned long last_m1;
 	bool _init;
 	int _skip_readings;
+	std::vector<SensorBase*> sensors;
 
 public:
 	Telemetry(ConfigurationBase& config) :
 		TelemetryBase(),
 		config(config)
 	{
-
+		sensors.push_back(new SensorBattery());
+		sensors.push_back(new SensorBME());
+		#if !defined(ESP_WEATHER_VARIANT_PRO)
+		sensors.push_back(new SensorPhoto());
+		#else
+		sensors.push_back(new SensorEvents());
+		sensors.push_back(new SensorADC());
+		sensors.push_back(new SensorUV());
+		#endif
 	}
 
 	virtual void begin() {
-		Wire.begin(SDA, SCL);
-		bme.begin();
-
 		_init = true;
+
+		//discover();
+
+		for (auto & sensor : sensors)
+			sensor->begin();
+
 		last_m1 = millis();
-		pinMode(SENSOR_SWITCH, OUTPUT);
 	}
 
-	float readAnalog(float c, int N, bool sw) {
-		float analog = 0;
-		digitalWrite(SENSOR_SWITCH, sw);
-		for (int i = 0; i < N; i++)
-			analog += c * analogRead(A0) / 1024.0;
-		return analog / (float)N;
+	void discover() {
+		bool results[255] = {false,};
+		Serial.println();
+		Serial.println("Searching I2C bus 0...");
+		SensorBase::discover(&Wire, results, 255, 0);
+		for (int i = 0; i < 255; i++)
+			if (results[i]) {
+				Serial.print("Device found at: 0x");
+				Serial.println(i, HEX);
+			}
+		Serial.println("Searching I2C bus 1...");
+		memset(results, 0, sizeof(results));
+		SensorBase::discover(&Wire1, results, 255, 0);
+		for (int i = 0; i < 255; i++)
+			if (results[i]) {
+				Serial.print("Device found at: 0x");
+				Serial.println(i, HEX);
+			}
 	}
 
 	virtual void loop(unsigned long now) {
 		// perform measurements every second
 		if (now - last_m1 > 1000) {
-			float temp, humi, psi, light;
-
-			// set analog switch for battery
-			_battery += readAnalog(BATTERY_DIVIDER_COEFFICIENT, 20, false);
-
-			// set analog switch for light sensor
-			// 100k pulldown
-			pinMode(DIVIDER_SELECTOR, INPUT);
-			digitalWrite(DIVIDER_SELECTOR, LOW); // no pullup
-			light = readAnalog(LIGHT_1_DIVIDER_COEFFICIENT, 20, true);
-
-			if (light >= LIGHT_THRESHOLD) {
-				pinMode(DIVIDER_SELECTOR, OUTPUT);
-				digitalWrite(DIVIDER_SELECTOR, LOW);
-				light = LIGHT_THRESHOLD + readAnalog(LIGHT_2_DIVIDER_COEFFICIENT, 20, true) - LIGHT_BIAS;
-				pinMode(DIVIDER_SELECTOR, INPUT);
-				digitalWrite(DIVIDER_SELECTOR, LOW); // no pullup
-			}
-
-			_light += light;
-
-			// Read BME280 measurements
-			BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
-	    	BME280::PresUnit presUnit(BME280::PresUnit_Pa);
-
-	    	bme.read(psi, temp, humi, tempUnit, presUnit);
-
-			// NOTE: Will perform humidity and battery voltage measurements up til now
-			if (_temperature == 0) {
-				_pressure = psi;
-				_temperature = temp;
-				_humidity = humi;
-				_send = true;
-			} else {
-				_pressure += psi;
-				_temperature += temp;
-				_humidity += humi;
-				_send = true;
-			}
-
-			// first time measurements
-			if (!_init)  {
-				_pressure /= 2.0;
-				_temperature /= 2.0;
-				_humidity /= 2.0;
-				_battery /= 2.0;
-				_light /= 2.0;
-			} else {
-				_init = false;
-			}
-
+			for (auto & sensor : sensors)
+				sensor->loop(now, sensor_map);
+			_send = true;
 			last_m1 = now;
 		}
 	}

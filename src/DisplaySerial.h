@@ -14,23 +14,37 @@
 *  You should have received a copy of the GNU General Public License
 *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  **/
-#ifndef MY_TELEMETRY_BASE_H
-#define MY_TELEMETRY_BASE_H
+#ifndef MY_DISPLAY_SERIAL_H
+#define MY_DISPLAY_SERIAL_H
 
-#include <SensorBase.h>
+#define Display DisplayOLED
+#include "DisplayOLED.h"
+#undef Display
 
-class TelemetryBase
+class Display : public DisplayOLED
 {
 public:
-	TelemetryBase() {
-		_send = false;
+	Display(ConfigurationBase& config) : DisplayOLED(config, SDA0, SCL0) {
+
 	}
 
-	virtual void begin() = 0;
-	virtual void loop(unsigned long now) = 0;
+	virtual void begin() {
+		DisplayOLED::begin();
+	}
+	virtual void end() {
+		DisplayOLED::end();
+	};
 
-	bool _send;
-	sensor_map_t sensor_map;
+	virtual void publish_telemetry(const String& name, TelemetryBase& t) {
+		DisplayBase::publish_telemetry(name, t);
+		for (auto & reading : t.sensor_map) {
+			Serial.print(reading.first);
+			Serial.print("=");
+			Serial.print(reading.second);
+			Serial.print(",");
+		}
+		Serial.println();
+	}
 };
 
 #endif

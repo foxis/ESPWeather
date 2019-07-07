@@ -1,5 +1,10 @@
 {
 	"serverName": "",
+	"wifi": true,
+	"static": true,
+	"static_ip": "192.168.1.117",
+	"static_gateway": "192.168.1.254",
+	"static_subnet": "255.255.255.0",
 	"networks": [],
 	"mqtt_user": "",
 	"mqtt_password": "",

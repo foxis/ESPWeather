@@ -14,23 +14,31 @@
 *  You should have received a copy of the GNU General Public License
 *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  **/
-#ifndef MY_TELEMETRY_BASE_H
-#define MY_TELEMETRY_BASE_H
+#ifndef MY_SENSOR_UV_H
+#define MY_SENSOR_UV_H
 
 #include <SensorBase.h>
+#include <Adafruit_SI1145.h>
 
-class TelemetryBase
+class SensorUV : public SensorBase
 {
+  Adafruit_SI1145 uv;
 public:
-	TelemetryBase() {
-		_send = false;
+	SensorUV() {
 	}
 
-	virtual void begin() = 0;
-	virtual void loop(unsigned long now) = 0;
+	virtual void begin() {
+    active = uv.begin();
+    //Serial.println(active ? "SI1145 found!" : "No SI1145");
+  }
 
-	bool _send;
-	sensor_map_t sensor_map;
+  virtual void loop(unsigned long now, sensor_map_t & sensor_map) {
+    if (!active)
+      return;
+
+    sensor_map["light"] = uv.readVisible();
+    sensor_map["uv-index"] = uv.readUV() / 100.0;
+  }
 };
 
 #endif

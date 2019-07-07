@@ -31,7 +31,10 @@ class Display : public DisplayBase
 	char _lines[LINES][LINE_LENGTH + 1] = {"Weather Station", "", "", ""};
 public:
 
-	Display(ConfigurationBase& config) : DisplayBase(), config(config), display(0x3c, SDA, SCL) {
+	Display(ConfigurationBase& config) : DisplayBase(), config(config), display(0x3c, SDA0, SCL0) {
+
+	}
+	Display(ConfigurationBase& config, uint8_t sda, uint8_t scl) : DisplayBase(), config(config), display(0x3c, sda, scl) {
 
 	}
 

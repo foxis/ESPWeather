@@ -21,6 +21,8 @@
 #define ARDUINO_HOSTNAME "ESPWeather-epaper"
 #elif defined(ESP_WEATHER_VARIANT_OLED)
 #define ARDUINO_HOSTNAME "ESPWeather-oled"
+#elif defined(ESP_WEATHER_VARIANT_PRO)
+#define ARDUINO_HOSTNAME "ESPWeather-Pro"
 #else
 // ESP_WEATHER_VARIANT_HEADLESS
 #define ARDUINO_HOSTNAME "ESPWeather"
@@ -31,6 +33,53 @@
 #define ARDUINO_HOSTNAME "ESPWeather-UI"
 #endif
 
+// Config parameters definitions
+#define CONFIG_FILE 					"/config.json"
+#define MY_NAME					 			"serverName"
+#define WIFI_ENABLED 					"wifi"
+#define NETWORKS 							"networks"
+#define DEEPSLEEPTIMEOUT 			"deepsleeptimeout"
+#define TIMEOUT 							"timeout"
+#define CANSLEEP 							"cansleep"
+#define MAXREADINGS 					"maxreadings"
+#define ALLOWOPEN 						"allowopen"
+#define MQTT_USER 						"mqtt_user"
+#define MQTT_PASSWORD 				"mqtt_password"
+#define MQTT_PORT 						"mqtt_port"
+#define MQTT_URL 							"mqtt_url"
+#define MQTT_LISTEN_NAMES 		"mqtt_listen_names"
+
+#define STATIC 								"static"
+#define STATIC_IP 						"static_ip"
+#define STATIC_GATEWAY 				"static_gateway"
+#define STATIC_SUBNET 				"static_subnet"
+
+// PIN definitions
+#define DIVIDER_SELECTOR 			5
+#define SENSOR_SWITCH					2
+
+#if defined(ESP_WEATHER_VARIANT_PRO)
+	#define SDA0 								4
+	#define SCL0 								5
+	#define SDA1  							13
+	#define SCL1  							12
+	#define SERIAL_RX 					3
+	#define SERIAL_TX 					1
+	#define TWI_PIN 						14
+	#define POWER_PIN						0
+#else
+	#define SDA0 								1
+	#define SCL0 								3
+#endif
+// 3 RX
+// 1 TX
+
+#include <Arduino.h>
+#include <SPI.h>
+#include <Wire.h>
+#if defined(ESP_WEATHER_VARIANT_PRO)
+#include <OneWire.h>
+#endif
 #include "DisplayBase.h"
 #include "TelemetryBase.h"
 
@@ -44,23 +93,6 @@
 #include <FS.h>
 #endif
 
-#define CONFIG_FILE "/config.json"
-#define MY_NAME "serverName"
-#define NETWORKS "networks"
-#define DEEPSLEEPTIMEOUT "deepsleeptimeout"
-#define TIMEOUT "timeout"
-#define CANSLEEP "cansleep"
-#define MAXREADINGS "maxreadings"
-#define ALLOWOPEN "allowopen"
-#define MQTT_USER "mqtt_user"
-#define MQTT_PASSWORD "mqtt_password"
-#define MQTT_PORT "mqtt_port"
-#define MQTT_URL "mqtt_url"
-#define MQTT_LISTEN_NAMES "mqtt_listen_names"
-#define SDA  1
-#define SCL 3
-// 3 RX
-// 1 TX
 
 class ConfigurationBase
 {
@@ -70,20 +102,33 @@ public:
 	TelemetryBase& telemetry;
 	static ConfigurationBase* instance;
 
+	// Network setup
+	bool wifi_enabled;
+	String mqtt_user;
+	String mqtt_password;
+	String mqtt_url;
+	int mqtt_port;
+	std::vector<String> mqtt_listen_names;
+	bool allowopen;
+
+	bool is_static;
+	IPAddress static_ip;
+	IPAddress static_gateway;
+	IPAddress static_subnet;
+
+	// Station name
 	String myName;
+
+	// Power management
 	bool can_sleep;
 	unsigned long timeout;
 	unsigned long deepsleeptimeout;
 	int maxreadings;
-	bool allowopen;
-	String mqtt_user;
-	String mqtt_password;
-	String mqtt_url;
-	std::vector<String> mqtt_listen_names;
-	int mqtt_port;
 	bool woke_up;
 
+	// timekeeping
 	unsigned long last_m;
+
 
 	ConfigurationBase(DisplayBase& display, TelemetryBase& telemetry) :
 		OTA(ARDUINO_HOSTNAME),
@@ -97,7 +142,11 @@ public:
 		deepsleeptimeout = 1800000000;
 		maxreadings = 3;
 		allowopen = false;
-		woke_up = ESP.getResetInfoPtr()->reason != REASON_DEFAULT_RST && ESP.getResetInfoPtr()->reason != REASON_SOFT_RESTART && ESP.getResetInfoPtr()->reason != REASON_EXT_SYS_RST;
+		wifi_enabled = true;
+		is_static = false;
+		woke_up = ESP.getResetInfoPtr()->reason != REASON_DEFAULT_RST &&
+							ESP.getResetInfoPtr()->reason != REASON_SOFT_RESTART &&
+							ESP.getResetInfoPtr()->reason != REASON_EXT_SYS_RST;
 	}
 
 	void setMyName(const String& name)
@@ -145,6 +194,17 @@ public:
 			configFile.close();
 			return false;
 		}
+
+		if (json.containsKey(WIFI_ENABLED))
+			wifi_enabled = json[WIFI_ENABLED];
+		if (json.containsKey(STATIC))
+			is_static = json[STATIC];
+		if (json.containsKey(STATIC_IP))
+			static_ip.fromString(json[STATIC_IP].as<String>());
+		if (json.containsKey(STATIC_GATEWAY))
+			static_gateway.fromString(json[STATIC_GATEWAY].as<String>());
+		if (json.containsKey(STATIC_SUBNET))
+			static_subnet.fromString(json[STATIC_SUBNET].as<String>());
 
 		if (json.containsKey(DEEPSLEEPTIMEOUT))
 			deepsleeptimeout = json[DEEPSLEEPTIMEOUT];
@@ -204,7 +264,12 @@ public:
 				return false;
 	  }
 		JsonObject& json = jsonBuffer.createObject();
-	  json[MY_NAME] = myName;
+		json[MY_NAME] = myName;
+		json[WIFI_ENABLED] = wifi_enabled;
+		json[STATIC] = is_static;
+		json[STATIC_IP] = static_ip.toString();
+		json[STATIC_GATEWAY] = static_gateway.toString();
+		json[STATIC_SUBNET] = static_subnet.toString();
 		json[DEEPSLEEPTIMEOUT] = deepsleeptimeout;
 		json[TIMEOUT] = timeout;
 		json[CANSLEEP] = can_sleep;
@@ -277,5 +342,9 @@ public:
 };
 
 ConfigurationBase* ConfigurationBase::instance = NULL;
+#if defined(ESP_WEATHER_VARIANT_PRO)
+TwoWire Wire1;
+OneWire OneWire(TWI_PIN);
+#endif
 
 #endif

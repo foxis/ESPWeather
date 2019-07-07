@@ -14,23 +14,29 @@
 *  You should have received a copy of the GNU General Public License
 *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  **/
-#ifndef MY_TELEMETRY_BASE_H
-#define MY_TELEMETRY_BASE_H
+#ifndef MY_SENSOR_EVENTS_H
+#define MY_SENSOR_EVENTS_H
 
 #include <SensorBase.h>
+#include <Wire.h>
 
-class TelemetryBase
+#define DS1682_ADDR 0x6B
+#define EVENT_COUNTER 0x09
+
+class SensorEvents : public SensorBase
 {
 public:
-	TelemetryBase() {
-		_send = false;
+	SensorEvents() {
 	}
 
-	virtual void begin() = 0;
-	virtual void loop(unsigned long now) = 0;
+	virtual void begin() {
+    active = test(&Wire, DS1682_ADDR);
+    //Serial.println(active ? "DS1682 found!" : "No DS1682");
+  }
 
-	bool _send;
-	sensor_map_t sensor_map;
+  virtual void loop(unsigned long now, sensor_map_t & sensor_map) {
+    sensor_map["events"] = read16(&Wire, DS1682_ADDR, EVENT_COUNTER);
+  }
 };
 
 #endif

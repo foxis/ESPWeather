@@ -17,17 +17,14 @@
 #ifndef MY_CONFIG_H
 #define MY_CONFIG_H
 
-
-#include <SPI.h>
-#include <Wire.h>
-
-
 #include "ConfigBase.h"
 #include "Telemetry.h"
 #if defined(ESP_WEATHER_VARIANT_OLED)
 #include "DisplayOLED.h"
 #elif defined(ESP_WEATHER_VARIANT_EPAPER)
 #include "DisplayEPAPER.h"
+#elif defined(ESP_WEATHER_VARIANT_PRO)
+#include "DisplaySerial.h"
 #else
 #include "DisplayHEADLESS.h"
 #endif
@@ -54,6 +51,17 @@ public:
 
 	void begin() {
 		SPIFFS.begin();
+
+		Wire.begin(SDA0, SCL0);
+#if defined(ESP_WEATHER_VARIANT_PRO)
+		pinMode(POWER_PIN, OUTPUT);
+		digitalWrite(POWER_PIN, LOW);
+
+		//Wire1.begin(SDA1, SCL1);
+		OneWire.begin(TWI_PIN);
+		Serial.begin(115200);
+#endif
+
 		telemetry.begin();
 		display.begin();
 
@@ -86,11 +94,9 @@ public:
 				StaticJsonBuffer<200> buf;
 				String json;
 				JsonObject &obj = buf.createObject();
-				obj["temperature"] = ConfigurationBase::instance->telemetry._temperature;
-				obj["humidity"] = ConfigurationBase::instance->telemetry._humidity;
-				obj["pressure"] = ConfigurationBase::instance->telemetry._pressure;
-				obj["light"] = ConfigurationBase::instance->telemetry._light;
-				obj["battery"] = ConfigurationBase::instance->telemetry._battery;
+				for (auto & reading : ConfigurationBase::instance->telemetry.sensor_map) {
+					obj[reading.first] = reading.second;
+				}
 				obj.printTo(json);
 				request->send(200, "application/json", json);
 			});
@@ -114,7 +120,8 @@ public:
 
 	void loop(unsigned long now)
 	{
-		OTA.loop(now);
+		if (wifi_enabled || !woke_up)
+			OTA.loop(now);
 		mqtt.loop(now);
 		telemetry.loop(now);
 		display.loop(now);
@@ -129,12 +136,18 @@ public:
 	virtual void deepsleep()
 	{
 		mqtt.disconnect();
+		#if defined(ESP_WEATHER_VARIANT_PRO)
+		digitalWrite(POWER_PIN, HIGH);
+		#endif
 		ConfigurationBase::deepsleep();
 	}
 
 	virtual void restart()
 	{
 		mqtt.disconnect();
+		#if defined(ESP_WEATHER_VARIANT_PRO)
+		digitalWrite(POWER_PIN, HIGH);
+		#endif
 		ConfigurationBase::restart();
 	}
 };

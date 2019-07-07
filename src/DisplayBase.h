@@ -18,6 +18,7 @@
 #define MY_DISPLAY_BASE_H
 
 #include <Arduino.h>
+#include <TelemetryBase.h>
 
 class DisplayBase
 {
@@ -25,6 +26,16 @@ public:
 	virtual void begin() = 0;
 	virtual void end() = 0;
 	virtual void loop(unsigned long now) = 0;
+
+	virtual void publish_telemetry(const String& name, TelemetryBase& t) {
+		float battery, temp, humi, pressure, light;
+		battery = t.sensor_map["battery"];
+		temp = t.sensor_map["temperature"];
+		humi = t.sensor_map["humidity"];
+		pressure = t.sensor_map["pressure"];
+		light = t.sensor_map["light"];
+		publish_telemetry(name, battery, temp, humi, pressure, light);
+	}
 
 	virtual void publish_telemetry(const String& name, float battery, float temp, float humidity, float pressure, float light) = 0;
 	virtual void publish_name(const String& name) = 0;

@@ -41,7 +41,8 @@ public:
 	}
 
 	void begin() {
-		if (config.mqtt_url.length() == 0 || config.mqtt_user.length() == 0)
+		if (config.mqtt_url.length() == 0 || config.mqtt_user.length() == 0
+				|| !config.wifi_enabled)
 			return;
 
 		// Setup MqttClient
@@ -121,6 +122,16 @@ public:
 	}
 
 	void loop(unsigned long now) {
+		if (!config.wifi_enabled) {
+			if (config.telemetry._send){
+				config.display.publish_status(config.woke_up ? "Wifi OFF" : "OTA / WebUI");
+				config.display.publish_telemetry(config.myName, config.telemetry);
+				config.telemetry._send = false;
+				readings++;
+			}
+			return;
+		}
+
 		client.loop();
 
 		if (config.OTA.state() == EasyOTA::EOS_STA)
@@ -137,14 +148,14 @@ public:
 					}
 					publish_telemetry();
 					config.display.publish_status(config.myName);
-					config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure, config.telemetry._light);
+					config.display.publish_telemetry(config.myName, config.telemetry);
 					config.telemetry._send = false;
 				}
 			}
 		} else {
 			if (config.telemetry._send) {
 				config.display.publish_status(config.woke_up ? "No Wifi" : "OTA / WebUI");
-				config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure, config.telemetry._light);
+				config.display.publish_telemetry(config.myName, config.telemetry);
 				config.telemetry._send = false;
 			}
 		}
@@ -161,7 +172,7 @@ public:
 		} else {
 			config.display.publish_status("No MQTT");
 			if (config.telemetry._send) {
-				config.display.publish_telemetry(config.myName, config.telemetry._battery, config.telemetry._temperature, config.telemetry._humidity, config.telemetry._pressure, config.telemetry._light);
+				config.display.publish_telemetry(config.myName, config.telemetry);
 				config.telemetry._send = false;
 			}
 		}
@@ -177,11 +188,9 @@ public:
 			return;
 
     // Publish telemetry data...
-		client.publish((config.myName + "/temperature").c_str(), String(config.telemetry._temperature).c_str(), true);
-		client.publish((config.myName + "/battery").c_str(), String(config.telemetry._battery).c_str(), true);
-		client.publish((config.myName + "/pressure").c_str(), String(config.telemetry._pressure).c_str(), true);
-	    client.publish((config.myName + "/humidity").c_str(), String(config.telemetry._humidity).c_str(), true);
-	    client.publish((config.myName + "/light").c_str(), String(config.telemetry._light).c_str(), true);
+		for (auto & reading : config.telemetry.sensor_map)
+			client.publish((config.myName + "/" + reading.first).c_str(), String(reading.second).c_str(), true);
+
 		readings++;
 	}
 };

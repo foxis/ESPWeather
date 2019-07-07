@@ -14,23 +14,36 @@
 *  You should have received a copy of the GNU General Public License
 *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  **/
-#ifndef MY_TELEMETRY_BASE_H
-#define MY_TELEMETRY_BASE_H
+#ifndef MY_SENSOR_BME_H
+#define MY_SENSOR_BME_H
 
 #include <SensorBase.h>
+#include <BME280I2C.h>
 
-class TelemetryBase
+class SensorBME : public SensorBase
 {
+  BME280I2C bme;
 public:
-	TelemetryBase() {
-		_send = false;
+	SensorBME() {
 	}
 
-	virtual void begin() = 0;
-	virtual void loop(unsigned long now) = 0;
+	virtual void begin() {
+		active = bme.begin();
+    //Serial.println(active ? "BME280 found!" : "No BME280");
+  }
 
-	bool _send;
-	sensor_map_t sensor_map;
+  virtual void loop(unsigned long now, sensor_map_t & sensor_map) {
+    float temp, humi, psi;
+
+    BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
+    BME280::PresUnit presUnit(BME280::PresUnit_Pa);
+
+    bme.read(psi, temp, humi, tempUnit, presUnit);
+
+    sensor_map["temperature"] = temp;
+    sensor_map["humidity"] = humi;
+    sensor_map["pressure"] = psi;
+  }
 };
 
 #endif
