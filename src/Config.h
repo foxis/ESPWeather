@@ -73,6 +73,10 @@ public:
 				ConfigurationBase::instance->setMyName(WiFi.macAddress());
 			}
 			ConfigurationBase::instance->display.publish_status("WIFI: " + ConfigurationBase::instance->OTA.currentAP());
+
+			if (state == EasyOTA::EOS_STA && ConfigurationBase::instance->is_static) {
+				WiFi.config(ConfigurationBase::instance->static_ip, ConfigurationBase::instance->static_gateway, ConfigurationBase::instance->static_subnet);
+			}
 		});
 
 		mqtt.begin();
@@ -133,18 +137,16 @@ public:
 	virtual void deepsleep()
 	{
 		mqtt.disconnect();
+		display.end();
 		#if defined(ESP_WEATHER_VARIANT_PRO)
 		digitalWrite(POWER_PIN, HIGH);
 		#endif
-		ConfigurationBase::deepsleep();
+		ESP.deepSleep(woke_up ? this->deepsleeptimeout : 1000000);
 	}
 
 	virtual void restart()
 	{
 		mqtt.disconnect();
-		#if defined(ESP_WEATHER_VARIANT_PRO)
-		digitalWrite(POWER_PIN, HIGH);
-		#endif
 		ConfigurationBase::restart();
 	}
 };

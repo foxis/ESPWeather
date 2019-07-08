@@ -20,16 +20,23 @@
 #define Display DisplayOLED
 #include "DisplayOLED.h"
 #undef Display
+#include <Arduino.h>
+#include <SoftwareSerial.h>
 
 class Display : public DisplayOLED
 {
+	SoftwareSerial logger;
+	bool available;
 public:
-	Display(ConfigurationBase& config) : DisplayOLED(config, SDA0, SCL0) {
-
+	Display(ConfigurationBase& config) :
+		DisplayOLED(config, SDA0, SCL0),
+		logger(SCL1, SDA1, false, 128, 10) {
+		available = false;
 	}
 
 	virtual void begin() {
 		DisplayOLED::begin();
+		logger.begin(9600);
 	}
 	virtual void end() {
 		DisplayOLED::end();
@@ -38,12 +45,12 @@ public:
 	virtual void publish_telemetry(const String& name, TelemetryBase& t) {
 		DisplayBase::publish_telemetry(name, t);
 		for (auto & reading : t.sensor_map) {
-			Serial.print(reading.first);
-			Serial.print("=");
-			Serial.print(reading.second);
-			Serial.print(",");
+			logger.print(reading.first);
+			logger.print("=");
+			logger.print(reading.second);
+			logger.print(",");
 		}
-		Serial.println();
+		logger.println();
 	}
 };
 
