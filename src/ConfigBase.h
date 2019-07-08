@@ -65,7 +65,7 @@
 	#define SCL1  							12
 	#define SERIAL_RX 					3
 	#define SERIAL_TX 					1
-	#define TWI_PIN 						14
+	#define ONE_WIRE_BUS				14
 	#define POWER_PIN						0
 #else
 	#define SDA0 								1
@@ -77,9 +77,6 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <Wire.h>
-#if defined(ESP_WEATHER_VARIANT_PRO)
-#include <OneWire.h>
-#endif
 #include "DisplayBase.h"
 #include "TelemetryBase.h"
 
@@ -342,9 +339,5 @@ public:
 };
 
 ConfigurationBase* ConfigurationBase::instance = NULL;
-#if defined(ESP_WEATHER_VARIANT_PRO)
-TwoWire Wire1;
-OneWire OneWire(TWI_PIN);
-#endif
 
 #endif

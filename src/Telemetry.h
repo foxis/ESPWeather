@@ -28,6 +28,7 @@
 #include <SensorEvents.h>
 #include <SensorADC.h>
 #include <SensorUV.h>
+#include <SensorDallas.h>
 #endif
 
 
@@ -52,6 +53,7 @@ public:
 		sensors.push_back(new SensorEvents());
 		sensors.push_back(new SensorADC());
 		sensors.push_back(new SensorUV());
+		sensors.push_back(new SensorDallas());
 		#endif
 	}
 
@@ -76,14 +78,14 @@ public:
 				Serial.print("Device found at: 0x");
 				Serial.println(i, HEX);
 			}
-		Serial.println("Searching I2C bus 1...");
-		memset(results, 0, sizeof(results));
-		SensorBase::discover(&Wire1, results, 255, 0);
-		for (int i = 0; i < 255; i++)
-			if (results[i]) {
-				Serial.print("Device found at: 0x");
-				Serial.println(i, HEX);
-			}
+		//Serial.println("Searching I2C bus 1...");
+		//memset(results, 0, sizeof(results));
+		//SensorBase::discover(&Wire1, results, 255, 0);
+		//for (int i = 0; i < 255; i++)
+		//	if (results[i]) {
+		//		Serial.print("Device found at: 0x");
+		//		Serial.println(i, HEX);
+		//	}
 	}
 
 	virtual void loop(unsigned long now) {

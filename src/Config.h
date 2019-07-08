@@ -56,9 +56,6 @@ public:
 #if defined(ESP_WEATHER_VARIANT_PRO)
 		pinMode(POWER_PIN, OUTPUT);
 		digitalWrite(POWER_PIN, LOW);
-
-		//Wire1.begin(SDA1, SCL1);
-		OneWire.begin(TWI_PIN);
 		Serial.begin(115200);
 #endif
 
