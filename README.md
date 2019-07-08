@@ -24,7 +24,11 @@ Websockets are used for telemetry transfer to the UI.
 * Report relative humidity
 * Report air pressure
 * Report battery voltage
-* Report light intensity (photoresistor)
+* Report light intensity (photoresistor) (non Pro version)
+* Variety of I2C and OneWire sensors (Pro version)
+* Two ADC channels (Pro version)
+* Event counter e.g. for rain bucket gauge (Pro version)
+* Support for OpenLog board (Pro version)
 * Monitor and display several other station telemetry
 * Headless
 * OLED display
@@ -56,7 +60,7 @@ These have no user interface and are intended to be placed into various strange 
 
 ![OLED Weather Station variant](schematics/oled_proto.jpg)
 
-`ESP_WEATHER_VARIANT_OLED` must be enabled in `wificonfig.h` for that option before building. It will use a SSD1306 128x64 .96" OLED display and will display current telemetry info except for battery.
+`ESP_WEATHER_VARIANT_OLED` must be defined for that option before building. It will use a SSD1306 128x64 .96" OLED display and will display current telemetry info except for battery.
 
 ### Revision 1.0
 
@@ -66,7 +70,7 @@ These have no user interface and are intended to be placed into various strange 
 
 ### Prototype
 
-`ESP_WEATHER_VARIANT_EPAPER` must be enabled in `wificonfig.h` for that option. `ESP_WEATHER_VARIANT_OLED` and `ESP_WEATHER_VARIANT_EPAPER` are mutually exclusive and the latter is only available when using ESP-12 module as SPI interface is required for it's operation. ESP-1 does not have enough pins for this feature.
+`ESP_WEATHER_VARIANT_EPAPER` must be defined for that option. `ESP_WEATHER_VARIANT_OLED` and `ESP_WEATHER_VARIANT_EPAPER` are mutually exclusive and the latter is only available when using ESP-12 module as SPI interface is required for it's operation. ESP-1 does not have enough pins for this feature.
 
 ![EPaper Weather Station variant](schematics/ESPWeather_back.jpg)
 
@@ -78,6 +82,14 @@ The most desirable feature of this variant is that the display is so wide it can
 
 ![EPaper Weather Station variant rev1.0](schematics/epd-front-rev1.0.jpg)
 ![EPaper Weather Station variant rev1.0](schematics/epd-back-rev1.0.jpg)
+
+## Pro version
+
+`ESP_WEATHER_VARIANT_PRO` must be defined for that option. The main advantage of that mode is that there are many more sensors supported. The board itself
+contains various busses (i2c, one wire, event counter, adc, serial) so that different sensors can be connected to it.
+
+For example you can build a complete weather station using this mode and connect soil moisture sensor(on one of ADC channels), UV/light sensor(SI1145),
+OneWire Dallas temperature sensor, rain bucket gauge to event counter, OpenLog serial logger(on I2C second channel which functions as Software Serial port).
 
 ## UI
 
@@ -198,6 +210,26 @@ Air relative humidity in percentage.
 ## {station name}/battery
 
 Battery voltage in volts.
+
+## {station name}/adc0
+
+ADC reading channel 0
+
+## {station name}/adc1
+
+ADC reading channel 1
+
+## {station name}/light
+
+Relative light reading using photoresistor or light reading if SI1145 is connected.
+
+## {station name}/uv-index
+
+This reading is available in Pro version when SI1145 is connected.
+
+## {station name}/events
+
+Total number of events recorded for Pro version.
 
 # Topics being subscribed by the station
 
