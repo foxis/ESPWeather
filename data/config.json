@@ -1,7 +1,7 @@
 {
 	"serverName": "",
 	"wifi": true,
-	"static": true,
+	"static": false,
 	"static_ip": "192.168.1.117",
 	"static_gateway": "192.168.1.254",
 	"static_subnet": "255.255.255.0",
@@ -11,6 +11,7 @@
 	"mqtt_port": 16769,
 	"mqtt_url": "m23.cloudmqtt.com",
 	"mqtt_listen_names": [],
+	"ntp_url": "pool.ntp.org",
 	"deepsleeptimeout": 1800000000,
 	"timeout": 15000,
 	"cansleep": true,

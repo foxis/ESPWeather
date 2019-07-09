@@ -128,6 +128,13 @@
 			         parseInt(Number(value)) == value &&
 			         !isNaN(parseInt(value, 10)) && value <= max && value >= min;
 			}
+      function checkIP(value) {
+        ip = "^([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
+            "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
+            "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
+            "([01]?\\d\\d?|2[0-4]\\d|25[0-5])$";
+        return value != null && value != "" && value.match(ip);
+      }
 			function validate_field(field, validator, min, max) {
 				value = field.val();
 				field.removeClass("is-invalid");
@@ -175,7 +182,8 @@
 					config.mqtt_user = $("#mqtt_user").val();
 					config.mqtt_password = $("#mqtt_password").val();
 					config.mqtt_port = parseInt(validate_field($("#mqtt_port"), checkInt, 1, 65535));
-					config.mqtt_url = $("#mqtt_url").val();
+          config.mqtt_url = $("#mqtt_url").val();
+          config.ntp_url = validate_field($("#ntp_url"), checkEmpty);
 
 					config.deepsleeptimeout = parseInt(validate_field($("#deepsleeptimeout"), checkInt, 10, 20000)) * 1000000;
 					config.timeout = parseInt(validate_field($("#timeout"), checkInt, 3, 60)) * 1000;
@@ -184,6 +192,11 @@
 
 					// Due to some ESP module limitations, only one Wifi network is supported
 					config.networks[$("#ssid").val()] = $("#psk").val();
+          config.wifi = $("#wifi_enabled").prop("checked");
+          config.static = $("#static").prop("checked");
+          config.static_ip = validate_field($("#static_ip"), checkIP);
+          config.static_gateway = validate_field($("#gateway"), checkIP);
+          config.static_subnet = validate_field($("#subnet"), checkIP);
 
 					 $.ajax({
 						 method: "POST",
@@ -228,7 +241,8 @@
 						$("#mqtt_user").val(data.mqtt_user);
 						$("#mqtt_password").val(data.mqtt_password);
 						$("#mqtt_port").val(data.mqtt_port);
-						$("#mqtt_url").val(data.mqtt_url);
+            $("#mqtt_url").val(data.mqtt_url);
+            $("#ntp_url").val(data.ntp_url);
 
 						$("#deepsleeptimeout").val(data.deepsleeptimeout / 1000000);
 						$("#timeout").val(data.timeout / 1000);
@@ -240,6 +254,12 @@
 							$("#ssid").val(ssid);
 							$("#psk").val(psk);
 	 				  });
+            $("#static").prop("checked", data.static);
+            $("#wifi_enabled").prop("checked", data.wifi);
+
+            $("#static_ip").val(data.static_ip);
+            $("#gateway").val(data.static_gateway);
+            $("#subnet").val(data.static_subnet);
 					},
 					error: function(data) {
 					 //
@@ -255,11 +275,10 @@
 					 retry_count: 3,
 					 url: get_url("readings"),
 					 success: function(data) {
-						 $("#temperature").text(data.temperature);
-						 $("#humidity").text(data.humidity);
-						 $("#pressure").text(data.pressure);
-						 $("#light").text(data.light);
-						 $("#battery").text(data.battery);
+             $("#sensor-readings").html("");
+             for (sensor in data) {
+               $("#sensor-readings").append("<tr><td>" + sensor + "</td><td>" + data[sensor] + "</td></tr>");
+             };
 					 },
 					 error: function(data) {
 					 }
@@ -310,32 +329,62 @@
 					<div class="tab-content" id="nav-tabContent">
 						<!--                             Readings                                                 -->
 					  <div class="tab-pane fade show active" id="nav-readings" role="tabpanel" aria-labelledby="nav-readings-tab">
-							<p>Temperature: <span id="temperature"></span> C</p>
-							<p>Humidity: <span id="humidity"></span> %</p>
-							<p>Air Pressure: <span id="pressure"></span> Pa</p>
-							<p>Light: <span id="light"></span></p>
-							<p>Battery: <span id="battery"></span> V</p>
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Sensor Name</th>
+                    <th scope="col">Sensor Value</th>
+                  </tr>
+                </thead>
+                <tbody id="sensor-readings">
+                </tbody>
+              </table>
 						</div>
 						<!--                             Setup                                                 -->
 					  <div class="tab-pane fade" id="nav-setup" role="tabpanel" aria-labelledby="nav-setup-tab">
 							<form id="config-form">
 								<!--   WIFI Networks tab     -->
 								<div class="card"><div class="card-header">WiFi networks</div>
+                  <div class="form-check col-md-5">
+                    <input type="checkbox" class="form-check-input" id="wifi_enabled">
+                    <label class="form-check-label" for="wifi_enabled">Connect to WiFi Networks</label>
+                  </div>
 								  <div class="form-row align-items-center">
 										<div class="form-group col-md-5">
 											<label for="ssid">WiFi SSID</label>
-											<input type="text" class="form-control field-ssid" id="ssid" placeholder="SSID">
+											<input type="text" class="form-control" id="ssid" placeholder="SSID">
 											<div class="invalid-tooltip">Must not be empty!</div>
 										</div>
 										<div class="form-group col-md-6">
 											<label for="psk">PSK</label>
-											<input type="password" class="form-control field-psk" id="psk" placeholder="WiFi Password">
+											<input type="password" class="form-control" id="psk" placeholder="WiFi Password">
+										</div>
+								  </div>
+                  <div class="form-check col-md-5">
+                    <input type="checkbox" class="form-check-input" id="static">
+                    <label class="form-check-label" for="static">Static IP Configuration</label>
+                  </div>
+                  <div class="form-row align-items-center">
+                    <div class="form-group col-md-5">
+											<label for="static_ip">Static IP</label>
+											<input type="text" class="form-control" id="static_ip" placeholder="192.168.1.117">
+											<div class="invalid-tooltip">Must be a valid IPv4 address!</div>
+										</div>
+                    <div class="form-group col-md-5">
+											<label for="gateway">Gateway</label>
+											<input type="text" class="form-control" id="gateway" placeholder="192.168.1.254">
+											<div class="invalid-tooltip">Must be a valid IPv4 address!</div>
+										</div>
+                    <div class="form-group col-md-5">
+											<label for="subnet">Subnet Mask</label>
+											<input type="text" class="form-control" id="subnet" placeholder="255.255.255.0">
+											<div class="invalid-tooltip">Must be a valid IPv4 mask!</div>
 										</div>
 								  </div>
 								</div>
 
-								<!--   MQTT tab     -->
-								<div class="card"><div class="card-header">MQTT</div>
+								<!--   Services tab     -->
+								<div class="card"><div class="card-header">Services</div>
 									<div class="form-row align-items-center">
 										<div class="form-group col-md-5">
 											<label for="mqtt_user">MQTT User</label>
@@ -347,7 +396,7 @@
 											<input type="password" class="form-control" id="mqtt_password" placeholder="Password">
 										</div>
 									</div>
-									<div class="form-row align-items-center">
+                  <div class="form-row align-items-center">
 										<div class="form-group col-md-5">
 											<label for="mqtt_url">MQTT Server</label>
 											<input type="text" class="form-control" id="mqtt_url" placeholder="m23.cloudmqtt.com">
@@ -357,6 +406,13 @@
 											<label for="mqtt_port">Port number</label>
 											<input type="text" class="form-control" id="mqtt_port" placeholder="16769">
 											<div class="invalid-tooltip">Must be integer between 1 and 65535!</div>
+										</div>
+									</div>
+                  <div class="form-row align-items-center">
+										<div class="form-group col-md-5">
+											<label for="ntp_url">NTP Pool Server</label>
+											<input type="text" class="form-control" id="ntp_url" placeholder="pool.ntp.org">
+											<div class="invalid-tooltip">Must not be empty!</div>
 										</div>
 									</div>
 								</div>
