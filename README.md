@@ -85,11 +85,19 @@ The most desirable feature of this variant is that the display is so wide it can
 
 ## Pro version
 
+![Weather Station Pro variant rev1.0](schematics/ESPWeatherPro-lot.jpg)
+
 `ESP_WEATHER_VARIANT_PRO` must be defined for that option. The main advantage of that mode is that there are many more sensors supported. The board itself
 contains various busses (i2c, one wire, event counter, adc, serial) so that different sensors can be connected to it.
 
 For example you can build a complete weather station using this mode and connect soil moisture sensor(on one of ADC channels), UV/light sensor(SI1145),
 OneWire Dallas temperature sensor, rain bucket gauge to event counter, OpenLog serial logger(on I2C second channel which functions as Software Serial port).
+
+Apart from builtin BME280 sensor the following are supported on I2C0 bus:
+* SI1145 UV/Ambient Light
+* DS18B20 Dallas temperature sensor
+* RTC clock
+* OpenLog module (connected to I2C1 BUS that acts as a SoftwareSerial bus)
 
 ## UI
 
