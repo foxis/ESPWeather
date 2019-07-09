@@ -31,6 +31,7 @@
 #include <SensorDallas.h>
 #include <SensorRTC.h>
 #endif
+#include <SensorNTP.h>
 
 
 class Telemetry : public TelemetryBase
@@ -57,12 +58,15 @@ public:
 		sensors.push_back(new SensorDallas());
 		sensors.push_back(new SensorRTC());
 		#endif
+		sensors.push_back(new SensorNTP());
 	}
 
 	virtual void begin() {
 		_init = true;
 
-		//discover();
+		#if defined(ESP_WEATHER_VARIANT_PRO)
+		discover();
+		#endif
 
 		for (auto & sensor : sensors)
 			sensor->begin();
@@ -97,8 +101,28 @@ public:
 				sensor->loop(now, sensor_map);
 			_send = true;
 			last_m1 = now;
+
+			if (build_json) {
+				String tmp;
+				StaticJsonBuffer<1024> buf;
+				JsonObject &obj = buf.createObject();
+				for (auto & reading : sensor_map) {
+					obj[reading.first] = (String)reading.second;
+				}
+				obj.printTo(tmp);
+
+				lock.lock();
+				this->json = tmp;
+				lock.unlock();
+			}
 		}
 	}
+
+	virtual void set_clock(const String & date, const String & time) {
+		for (auto & sensor : sensors)
+			sensor->set_time(date, time);
+	}
+
 };
 
 #endif
