@@ -29,7 +29,7 @@ public:
 
 	virtual void begin() {
     active = uv.begin();
-    //Serial.println(active ? "SI1145 found!" : "No SI1145");
+    SERIAL_LN(active ? "SI1145 found!" : "No SI1145");
   }
 
   virtual void loop(unsigned long now, sensor_map_t & sensor_map) {

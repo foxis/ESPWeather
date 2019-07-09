@@ -29,16 +29,19 @@ class SensorRTC : public SensorBase
     virtual String found_name() const = 0;
     virtual String now() = 0;
     virtual bool detect() = 0;
+    virtual void set(const String & date, const String & time) = 0;
   };
 
   template <typename T>
   class RTCWrapper : public RTCWrapperBase
   {
+    uint8_t addr;
     T rtc;
     String name;
   public:
-    RTCWrapper(const String & name) {
+    RTCWrapper(const String & name, uint8_t addr) {
       this->name = name;
+      this->addr = addr;
     }
 
     virtual String found_name() const {
@@ -48,23 +51,30 @@ class SensorRTC : public SensorBase
       return rtc.now().timestamp();
     }
 
-    virtual bool detect();
+    virtual bool detect() {
+      return SensorBase::test(&Wire, addr) && rtc.begin() && init();
+    }
+
+    virtual void set(const String & date, const String & time) {
+      rtc.adjust(DateTime(date.c_str(), time.c_str()));
+    }
+    bool init();
   };
 
   std::vector<RTCWrapperBase *> clocks;
   RTCWrapperBase * rtc;
 public:
 	SensorRTC() {
-    clocks.push_back(new RTCWrapper<RTC_DS1307>("DS1307"));
-    clocks.push_back(new RTCWrapper<RTC_DS3231>("DS3231"));
-    clocks.push_back(new RTCWrapper<RTC_PCF8523>("PCF8523"));
+    clocks.push_back(new RTCWrapper<RTC_DS1307>("DS1307", DS1307_ADDRESS));
+    clocks.push_back(new RTCWrapper<RTC_DS3231>("DS3231", DS3231_ADDRESS));
+    clocks.push_back(new RTCWrapper<RTC_PCF8523>("PCF8523", PCF8523_ADDRESS));
     rtc = NULL;
 	}
 
 	virtual void begin() {
     for (auto & clock : clocks)
       if (clock->detect()) {
-        Serial.println(clock->found_name());
+        SERIAL_LN(clock->found_name());
         rtc = clock;
         break;
       }
@@ -77,19 +87,36 @@ public:
 
     sensor_map["rtc"] = rtc->now();
   }
+
+  virtual void set_time(const String & date, const String & time) {
+    if (rtc != NULL)
+      rtc->set(date, time);
+  }
+
 };
 
 template<>
-bool SensorRTC::RTCWrapper<RTC_DS1307>::detect() {
-  return rtc.begin() && rtc.isrunning();
+bool SensorRTC::RTCWrapper<RTC_DS1307>::init() {
+  if (!rtc.isrunning()) {
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+  return true;
 }
+
 template<>
-bool SensorRTC::RTCWrapper<RTC_DS3231>::detect() {
-  return rtc.begin();
+bool SensorRTC::RTCWrapper<RTC_DS3231>::init() {
+  if (rtc.lostPower()) {
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+  return true;
 }
+
 template<>
-bool SensorRTC::RTCWrapper<RTC_PCF8523>::detect() {
-  return rtc.begin() && rtc.initialized();
+bool SensorRTC::RTCWrapper<RTC_PCF8523>::init() {
+  if (!rtc.initialized()) {
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+  return true;
 }
 
 #endif

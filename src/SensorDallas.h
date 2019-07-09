@@ -50,7 +50,7 @@ public:
           if (!sensors.getAddress(tmp.addr, i))
             thermometers.push_back(tmp);
     }
-    //Serial.println(active ? "SI1145 found!" : "No SI1145");
+    SERIAL_LN(active ? "Dallas temperature sensors found!" : "No Dallas temperature sensors");
   }
 
   virtual void loop(unsigned long now, sensor_map_t & sensor_map) {

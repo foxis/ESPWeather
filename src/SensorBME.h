@@ -29,7 +29,7 @@ public:
 
 	virtual void begin() {
 		active = bme.begin();
-    //Serial.println(active ? "BME280 found!" : "No BME280");
+    SERIAL_LN(active ? "BME280 found!" : "No BME280");
   }
 
   virtual void loop(unsigned long now, sensor_map_t & sensor_map) {

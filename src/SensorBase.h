@@ -82,6 +82,7 @@ public:
 
 	virtual void begin() = 0;
 	virtual void loop(unsigned long now, sensor_map_t & sensor_map) = 0;
+  virtual void set_time(const String & date, const String & time) {}
 
   static void discover(TwoWire * wire, bool * results, size_t num_results, uint8_t addr_start) {
 		for (size_t i = addr_start; i < (addr_start + num_results); i++)

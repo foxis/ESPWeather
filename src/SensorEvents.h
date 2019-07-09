@@ -31,7 +31,7 @@ public:
 
 	virtual void begin() {
     active = test(&Wire, DS1682_ADDR);
-    //Serial.println(active ? "DS1682 found!" : "No DS1682");
+    SERIAL_LN(active ? "DS1682 found!" : "No DS1682");
   }
 
   virtual void loop(unsigned long now, sensor_map_t & sensor_map) {

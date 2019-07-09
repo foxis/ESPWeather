@@ -33,7 +33,7 @@ public:
 
 	virtual void begin() {
 		active = test(&Wire, AD7992_ADDR);
-		//Serial.println(active ? "AD7992 found!" : "No AD7992");
+		SERIAL_LN(active ? "AD7992 found!" : "No AD7992");
   }
 
   virtual void loop(unsigned long now, sensor_map_t & sensor_map) {
