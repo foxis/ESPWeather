@@ -22,8 +22,57 @@
 #include <Wire.h>
 #include <map>
 
-typedef std::map<String, float> sensor_map_t;
-typedef std::pair<String, float> sensor_val_t;
+class SensorValue
+{
+  enum {
+    SV_NONE,
+    SV_FLOAT,
+    SV_STRING,
+  } _type;
+  float f;
+  String s;
+
+public:
+  SensorValue() {
+    _type = SV_NONE;
+  }
+  SensorValue(float f) {
+    _type = SV_FLOAT;
+    this->f = f;
+  }
+  SensorValue(const String & str) {
+    _type = SV_STRING;
+    this->s = str;
+  }
+  SensorValue(const SensorValue& sv) {
+    *this = sv;
+  }
+
+  void operator = (const SensorValue& sv) {
+    _type = sv._type;
+    f = sv.f;
+    s = sv.s;
+  }
+
+  operator String () {
+    switch (_type)
+    {
+      case SV_FLOAT:
+        return String(f);
+      case SV_STRING:
+        return s;
+      default:
+        return "NA";
+    }
+  }
+
+  float fvalue() {
+    return f;
+  }
+};
+
+typedef std::map<String, SensorValue> sensor_map_t;
+typedef std::pair<String, SensorValue> sensor_val_t;
 
 class SensorBase
 {

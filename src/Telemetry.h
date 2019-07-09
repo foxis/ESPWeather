@@ -29,6 +29,7 @@
 #include <SensorADC.h>
 #include <SensorUV.h>
 #include <SensorDallas.h>
+#include <SensorRTC.h>
 #endif
 
 
@@ -54,6 +55,7 @@ public:
 		sensors.push_back(new SensorADC());
 		sensors.push_back(new SensorUV());
 		sensors.push_back(new SensorDallas());
+		sensors.push_back(new SensorRTC());
 		#endif
 	}
 

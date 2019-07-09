@@ -96,7 +96,7 @@ public:
 				String json;
 				JsonObject &obj = buf.createObject();
 				for (auto & reading : ConfigurationBase::instance->telemetry.sensor_map) {
-					obj[reading.first] = reading.second;
+					obj[reading.first] = (String)reading.second;
 				}
 				obj.printTo(json);
 				request->send(200, "application/json", json);

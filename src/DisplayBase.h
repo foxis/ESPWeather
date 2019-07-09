@@ -29,11 +29,11 @@ public:
 
 	virtual void publish_telemetry(const String& name, TelemetryBase& t) {
 		float battery, temp, humi, pressure, light;
-		battery = t.sensor_map["battery"];
-		temp = t.sensor_map["temperature"];
-		humi = t.sensor_map["humidity"];
-		pressure = t.sensor_map["pressure"];
-		light = t.sensor_map["light"];
+		battery = t.sensor_map["battery"].fvalue();
+		temp = t.sensor_map["temperature"].fvalue();
+		humi = t.sensor_map["humidity"].fvalue();
+		pressure = t.sensor_map["pressure"].fvalue();
+		light = t.sensor_map["light"].fvalue();
 		publish_telemetry(name, battery, temp, humi, pressure, light);
 	}
 
