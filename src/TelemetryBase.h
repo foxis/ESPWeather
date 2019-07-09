@@ -19,18 +19,41 @@
 
 #include <SensorBase.h>
 
+class Mutex {
+	volatile bool _lock;
+
+public:
+	Mutex() {
+		_lock = false;
+	}
+
+	void lock() {
+		while (_lock) {}
+		_lock = true;
+	}
+
+	void unlock() {
+		_lock = false;
+	}
+};
+
 class TelemetryBase
 {
 public:
 	TelemetryBase() {
 		_send = false;
+		build_json = false;
 	}
 
 	virtual void begin() = 0;
 	virtual void loop(unsigned long now) = 0;
+	virtual void set_clock(const String & date, const String & time) = 0;
 
 	bool _send;
 	sensor_map_t sensor_map;
+	Mutex lock;
+	String json;
+	bool build_json;
 };
 
 #endif

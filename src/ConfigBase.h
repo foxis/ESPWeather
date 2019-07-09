@@ -47,6 +47,7 @@
 #define MQTT_PASSWORD 				"mqtt_password"
 #define MQTT_PORT 						"mqtt_port"
 #define MQTT_URL 							"mqtt_url"
+#define NTP_URL 							"ntp_url"
 #define MQTT_LISTEN_NAMES 		"mqtt_listen_names"
 
 #define STATIC 								"static"
@@ -90,6 +91,14 @@
 #include <FS.h>
 #endif
 
+#if defined(ESP_WEATHER_VARIANT_PRO)
+#define SERIAL_LN(a) Serial.println(a)
+#define SERIAL_V(a) Serial.print(a)
+#else
+#define SERIAL_LN(a)
+#define SERIAL_V(a)
+#endif
+
 
 class ConfigurationBase
 {
@@ -106,6 +115,9 @@ public:
 	String mqtt_url;
 	int mqtt_port;
 	std::vector<String> mqtt_listen_names;
+
+	String ntp_url;
+
 	bool allowopen;
 
 	bool is_static;
@@ -222,6 +234,8 @@ public:
 			mqtt_port = json[MQTT_PORT];
 		if (json.containsKey(MQTT_URL))
 			mqtt_url = json[MQTT_URL].as<String>();
+		if (json.containsKey(NTP_URL))
+			ntp_url = json[NTP_URL].as<String>();
 		if (json.containsKey(MQTT_LISTEN_NAMES)) {
 			JsonArray& ja = json[MQTT_LISTEN_NAMES];
 			JsonArray::iterator I = ja.begin();
@@ -276,6 +290,7 @@ public:
 		json[MQTT_PASSWORD] = mqtt_password;
 		json[MQTT_PORT] = mqtt_port;
 		json[MQTT_URL] = mqtt_url;
+		json[NTP_URL] = ntp_url;
 
 		JsonArray& arr = json.createNestedArray(MQTT_LISTEN_NAMES);
 		std::vector<String>::iterator I = mqtt_listen_names.begin();
@@ -322,6 +337,7 @@ public:
 	virtual void deepsleep()
 	{
 		display.end();
+		SERIAL_LN("Going to sleep...");
 		ESP.deepSleep(woke_up ? this->deepsleeptimeout : 1000000);
 	}
 
@@ -332,6 +348,7 @@ public:
 	virtual void restart()
 	{
 		display.end();
+		SERIAL_LN("Restarting...");
 		ESP.deepSleep(1000000);
 		//ESP.restart();
 	}

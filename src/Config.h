@@ -56,8 +56,10 @@ public:
 #if defined(ESP_WEATHER_VARIANT_PRO)
 		pinMode(POWER_PIN, OUTPUT);
 		digitalWrite(POWER_PIN, LOW);
-		Serial.begin(115200);
+		Serial.begin(74880);
 #endif
+
+		SERIAL_LN("Power on, initializing...");
 
 		telemetry.begin();
 		display.begin();
@@ -75,6 +77,7 @@ public:
 			ConfigurationBase::instance->display.publish_status("WIFI: " + ConfigurationBase::instance->OTA.currentAP());
 
 			if (state == EasyOTA::EOS_STA && ConfigurationBase::instance->is_static) {
+				SERIAL_LN("Configuring static ip...");
 				WiFi.config(ConfigurationBase::instance->static_ip, ConfigurationBase::instance->static_gateway, ConfigurationBase::instance->static_subnet);
 			}
 		});
@@ -82,6 +85,9 @@ public:
 		mqtt.begin();
 
 		if (!woke_up) {
+			SERIAL_LN("Entering WebUI config mode...");
+			ConfigurationBase::instance->telemetry.build_json = true;
+
 			server.serveStatic("/", SPIFFS, "/web").setDefaultFile("index.html");
 			server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request) {
 				request->send(200, "text/plain", String(ESP.getFreeHeap()));
@@ -92,14 +98,11 @@ public:
 			});
 			server.on("/readings", HTTP_GET, [](AsyncWebServerRequest *request) {
 				ConfigurationBase::instance->keepalive();
-				StaticJsonBuffer<200> buf;
-				String json;
-				JsonObject &obj = buf.createObject();
-				for (auto & reading : ConfigurationBase::instance->telemetry.sensor_map) {
-					obj[reading.first] = (String)reading.second;
-				}
-				obj.printTo(json);
-				request->send(200, "application/json", json);
+				ConfigurationBase::instance->telemetry.lock.lock();
+				String tmp = ConfigurationBase::instance->telemetry.json.c_str();
+				ConfigurationBase::instance->telemetry.lock.unlock();
+				SERIAL_LN(tmp);
+				request->send(200, "application/json", tmp);
 			});
 			server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request) {
 				AsyncWebServerResponse *response = request->beginResponse(SPIFFS, CONFIG_FILE);

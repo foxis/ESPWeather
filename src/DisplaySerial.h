@@ -49,8 +49,14 @@ public:
 			logger.print("=");
 			logger.print(reading.second);
 			logger.print(",");
+
+			Serial.print(reading.first);
+			Serial.print("=");
+			Serial.print(reading.second);
+			Serial.print(",");
 		}
 		logger.println();
+		Serial.println();
 	}
 };
 
