@@ -197,6 +197,7 @@
           config.static_ip = validate_field($("#static_ip"), checkIP);
           config.static_gateway = validate_field($("#gateway"), checkIP);
           config.static_subnet = validate_field($("#subnet"), checkIP);
+          config.static_dns = validate_field($("#dns"), checkIP);
 
 					 $.ajax({
 						 method: "POST",
@@ -260,6 +261,7 @@
             $("#static_ip").val(data.static_ip);
             $("#gateway").val(data.static_gateway);
             $("#subnet").val(data.static_subnet);
+            $("#dns").val(data.static_dns);
 					},
 					error: function(data) {
 					 //
@@ -379,6 +381,11 @@
 											<label for="subnet">Subnet Mask</label>
 											<input type="text" class="form-control" id="subnet" placeholder="255.255.255.0">
 											<div class="invalid-tooltip">Must be a valid IPv4 mask!</div>
+										</div>
+                    <div class="form-group col-md-5">
+											<label for="dns">DNS Server</label>
+											<input type="text" class="form-control" id="dns" placeholder="8.8.8.8">
+											<div class="invalid-tooltip">Must be a valid IPv4 address!</div>
 										</div>
 								  </div>
 								</div>
