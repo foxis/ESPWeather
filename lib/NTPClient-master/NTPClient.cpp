@@ -222,9 +222,17 @@ void NTPClient::sendNTPPacket() {
 
   // all NTP fields have been given values, now
   // you can send a packet requesting a timestamp:
-  this->_udp->beginPacket(this->_poolServerName, 123); //NTP requests are to port 123
-  this->_udp->write(this->_packetBuffer, NTP_PACKET_SIZE);
-  this->_udp->endPacket();
+  int count = 10;
+  while (count--) {
+    auto result = this->_udp->beginPacket(this->_poolServerName, 123); //NTP requests are to port 123
+    if (!result) {
+      delay(10);
+      continue;
+    }
+    this->_udp->write(this->_packetBuffer, NTP_PACKET_SIZE);
+    this->_udp->endPacket();
+    break;
+  }
 }
 
 void NTPClient::setEpochTime(unsigned long secs) {
