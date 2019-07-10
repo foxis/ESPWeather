@@ -31,7 +31,7 @@ public:
 	}
 
 	virtual void begin() {
-    active = true;
+    active = ConfigurationBase::instance->ntp_url.length() > 0 && !ConfigurationBase::instance->ntp_url.equals("NA");
     began = false;
     timeClient.setPoolServerName(ConfigurationBase::instance->ntp_url.c_str());
   }

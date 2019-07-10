@@ -94,10 +94,14 @@
 
 #if defined(ESP_WEATHER_VARIANT_PRO)
 #define SERIAL_LN(a) Serial.println(a)
+#define SERIAL_LN1(a, b) Serial.println(a, b)
 #define SERIAL_V(a) Serial.print(a)
+#define SERIAL_V1(a, b) Serial.print(a, b)
 #else
 #define SERIAL_LN(a)
+#define SERIAL_LN1(a, b)
 #define SERIAL_V(a)
+#define SERIAL_V1(a, b)
 #endif
 
 
@@ -245,7 +249,7 @@ public:
 				mqtt_listen_names.push_back(name);
 		}
 
-		if (json.containsKey(NETWORKS) && woke_up){
+		if (json.containsKey(NETWORKS) && woke_up) {
 			for (auto & network : (JsonObject&)json[NETWORKS]) {
 				if (strlen(network.key) > 0)
 					OTA.addAP(network.key, network.value);
@@ -305,7 +309,7 @@ public:
 
 	bool save_file(AsyncWebServerRequest *request, const String& fname, uint8_t * data, size_t len, size_t index, size_t total)
 	{
-		Serial.println("Saving config " + fname +" len/index: " + String(len) + "/" +  String(index));
+		//Serial.println("Saving config " + fname +" len/index: " + String(len) + "/" +  String(index));
 
 		File f = SPIFFS.open(fname, index != 0 ? "a" : "w");
 	  if (!f) {
@@ -320,7 +324,7 @@ public:
 		if (f.size() >= total)
 		{
 			request->send(200, "application/json", "{\"msg\": \"INFO: " + fname + " saved!\"}");
-			Serial.println("Saving config... DONE");
+			//Serial.println("Saving config... DONE");
 		}
 
 		f.close();
@@ -330,7 +334,6 @@ public:
 	virtual void deepsleep()
 	{
 		display.end();
-		SERIAL_LN("Going to sleep...");
 		ESP.deepSleep(woke_up ? this->deepsleeptimeout : 1000000);
 	}
 
@@ -341,7 +344,6 @@ public:
 	virtual void restart()
 	{
 		display.end();
-		SERIAL_LN("Restarting...");
 		ESP.deepSleep(1000000);
 		//ESP.restart();
 	}

@@ -76,13 +76,12 @@ public:
 
 	void discover() {
 		bool results[255] = {false,};
-		Serial.println();
-		Serial.println("Searching I2C bus 0...");
+		SERIAL_LN("Searching I2C bus 0...");
 		SensorBase::discover(&Wire, results, 255, 0);
 		for (int i = 0; i < 255; i++)
 			if (results[i]) {
-				Serial.print("Device found at: 0x");
-				Serial.println(i, HEX);
+				SERIAL_V("Device found at: 0x");
+				SERIAL_LN1(i, HEX);
 			}
 		//Serial.println("Searching I2C bus 1...");
 		//memset(results, 0, sizeof(results));

@@ -69,7 +69,7 @@ public:
 
 		OTA.allowOpen(this->allowopen);
 		if (this->is_static) {
-			OTA.setStaticIP(static_ip, static_gateway, static_subnet);
+			OTA.setStaticIP(static_ip, static_dns, static_gateway, static_subnet);
 		}
 
 		OTA.onConnect([](const String& ssid, EasyOTA::STATE state){
@@ -98,10 +98,8 @@ public:
 			server.on("/readings", HTTP_GET, [](AsyncWebServerRequest *request) {
 				ConfigurationBase::instance->keepalive();
 				ConfigurationBase::instance->telemetry.lock();
-				String tmp = ConfigurationBase::instance->telemetry.json.c_str();
+				request->send(200, "application/json", ConfigurationBase::instance->telemetry.json);
 				ConfigurationBase::instance->telemetry.unlock();
-				SERIAL_LN(tmp);
-				request->send(200, "application/json", tmp);
 			});
 			server.on("/config", HTTP_GET, [](AsyncWebServerRequest *request) {
 				AsyncWebServerResponse *response = request->beginResponse(SPIFFS, CONFIG_FILE);
@@ -129,9 +127,9 @@ public:
 		telemetry.loop(now);
 		display.loop(now);
 
+		unsigned long timeout = woke_up ? this->timeout : 5 * 60 * 1000;
 		// Sleep after so much seconds (timeout is in milliseconds)
-		unsigned int timeout = woke_up ? this->timeout : 5 * 60 * 1000;
-		if (can_sleep && now - last_m > timeout || this->maxreadings && (mqtt.readings >= this->maxreadings))	{
+		if (can_sleep && (now > last_m && now - last_m > timeout) || this->maxreadings && (mqtt.readings >= this->maxreadings))	{
 			deepsleep();
 		}
 	}
