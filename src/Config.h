@@ -51,6 +51,7 @@ public:
 
 	void begin() {
 		SPIFFS.begin();
+		loadConfig();
 
 		Wire.begin(SDA0, SCL0);
 #if defined(ESP_WEATHER_VARIANT_PRO)
@@ -66,20 +67,18 @@ public:
 
 		display.publish_status("Initializing");
 
-		loadConfig();
-
 		OTA.allowOpen(this->allowopen);
+		if (this->is_static) {
+			OTA.setStaticIP(static_ip, static_gateway, static_subnet);
+		}
 
 		OTA.onConnect([](const String& ssid, EasyOTA::STATE state){
 			if (ConfigurationBase::instance->myName == "") {
 				ConfigurationBase::instance->setMyName(WiFi.macAddress());
 			}
 			ConfigurationBase::instance->display.publish_status("WIFI: " + ConfigurationBase::instance->OTA.currentAP());
-
-			if (state == EasyOTA::EOS_STA && ConfigurationBase::instance->is_static) {
-				SERIAL_LN("Configuring static ip...");
-				WiFi.config(ConfigurationBase::instance->static_ip, ConfigurationBase::instance->static_gateway, ConfigurationBase::instance->static_subnet);
-			}
+			SERIAL_V("Connected to AP: ");
+			SERIAL_LN(ConfigurationBase::instance->OTA.currentAP());
 		});
 
 		mqtt.begin();
@@ -98,9 +97,9 @@ public:
 			});
 			server.on("/readings", HTTP_GET, [](AsyncWebServerRequest *request) {
 				ConfigurationBase::instance->keepalive();
-				ConfigurationBase::instance->telemetry.lock.lock();
+				ConfigurationBase::instance->telemetry.lock();
 				String tmp = ConfigurationBase::instance->telemetry.json.c_str();
-				ConfigurationBase::instance->telemetry.lock.unlock();
+				ConfigurationBase::instance->telemetry.unlock();
 				SERIAL_LN(tmp);
 				request->send(200, "application/json", tmp);
 			});

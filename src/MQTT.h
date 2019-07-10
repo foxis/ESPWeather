@@ -82,13 +82,11 @@ public:
 				MQTT::instance->config.setMyName(MQTT::instance->listening[0]);
 				MQTT::instance->listening.erase(MQTT::instance->listening.begin());
 #if defined(ESP_WEATHER_VARIANT_EPAPER)
-				std::vector<String>::iterator I = MQTT::instance->listening.begin();
-				while (I != MQTT::instance->listening.end()) {
-					MQTT::instance->client.subscribe((*I + "/temperature").c_str());
-					MQTT::instance->client.subscribe((*I + "/pressure").c_str());
-					MQTT::instance->client.subscribe((*I + "/humidity").c_str());
-					MQTT::instance->client.subscribe((*I + "/battery").c_str());
-					I++;
+				for (auto & name : MQTT::instance->listening) {
+					MQTT::instance->client.subscribe((name + "/temperature").c_str());
+					MQTT::instance->client.subscribe((name + "/pressure").c_str());
+					MQTT::instance->client.subscribe((name + "/humidity").c_str());
+					MQTT::instance->client.subscribe((name + "/battery").c_str());
 				}
 #endif
 			} else if (strcmp(topic, (MQTT::instance->config.myName + "/apadd").c_str()) == 0) {
@@ -162,6 +160,16 @@ public:
 	}
 
 	void reconnect() {
+		if (config.mqtt_url.length() == 0 || config.mqtt_user.length() == 0
+				|| !config.wifi_enabled) {
+			config.display.publish_status("No MQTT");
+			if (config.telemetry._send) {
+				config.display.publish_telemetry(config.myName, config.telemetry);
+				config.telemetry._send = false;
+			}
+			return;
+		}
+
 		String clientName = ARDUINO_HOSTNAME + String("-") + config.myName;
 		if (client.connect(clientName.c_str(), config.mqtt_user.c_str(), config.mqtt_password.c_str())) {
 			// Once connected, subscribe to config topics
@@ -169,6 +177,7 @@ public:
 			client.subscribe((config.myName + "/apremove").c_str());
 			client.subscribe((config.myName + "/name").c_str());
 			client.subscribe((config.myName).c_str());
+			SERIAL_LN("Conntected to MQTT");
 		} else {
 			config.display.publish_status("No MQTT");
 			if (config.telemetry._send) {

@@ -37,7 +37,7 @@ public:
 	}
 };
 
-class TelemetryBase
+class TelemetryBase : public Mutex
 {
 public:
 	TelemetryBase() {
@@ -51,7 +51,6 @@ public:
 
 	bool _send;
 	sensor_map_t sensor_map;
-	Mutex lock;
 	String json;
 	bool build_json;
 };

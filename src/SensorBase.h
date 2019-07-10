@@ -27,9 +27,13 @@ class SensorValue
   enum {
     SV_NONE,
     SV_FLOAT,
+    SV_32BIT,
     SV_STRING,
   } _type;
-  float f;
+  union {
+    float f;
+    uint32_t i;
+  } d;
   String s;
 
 public:
@@ -38,8 +42,15 @@ public:
   }
   SensorValue(float f) {
     _type = SV_FLOAT;
-    this->f = f;
+    this->d.f = f;
   }
+  SensorValue(double f) : SensorValue((float)f) {}
+  SensorValue(uint32_t i) {
+    _type = SV_32BIT;
+    this->d.i = i;
+  }
+  SensorValue(uint16_t i) : SensorValue((uint32_t)i) {}
+  SensorValue(uint8_t i) : SensorValue((uint32_t)i) {}
   SensorValue(const String & str) {
     _type = SV_STRING;
     this->s = str;
@@ -50,7 +61,7 @@ public:
 
   void operator = (const SensorValue& sv) {
     _type = sv._type;
-    f = sv.f;
+    d = sv.d;
     s = sv.s;
   }
 
@@ -58,7 +69,9 @@ public:
     switch (_type)
     {
       case SV_FLOAT:
-        return String(f);
+        return String(d.f);
+      case SV_32BIT:
+        return String(d.i);
       case SV_STRING:
         return s;
       default:
@@ -67,7 +80,10 @@ public:
   }
 
   float fvalue() {
-    return f;
+    return d.f;
+  }
+  uint32_t ivalue() {
+    return d.i;
   }
 };
 

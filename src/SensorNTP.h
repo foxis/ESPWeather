@@ -22,28 +22,32 @@
 
 class SensorNTP : public SensorBase
 {
+  String serverIP;
   WiFiUDP ntpUDP;
   NTPClient timeClient;
+  bool began;
 public:
 	SensorNTP() : timeClient(ntpUDP, "pool.ntp.org", 0, 1000) {
 	}
 
 	virtual void begin() {
-    active = false;
+    active = true;
+    began = false;
     timeClient.setPoolServerName(ConfigurationBase::instance->ntp_url.c_str());
   }
 
   virtual void loop(unsigned long now, sensor_map_t & sensor_map) {
-    if (WiFi.status() != WL_CONNECTED)
+    if (!active || WiFi.status() != WL_CONNECTED)
       return;
-    if (!active) {
+    if (!began) {
       timeClient.begin();
-      active = true;
+      began = true;
     }
 
-    SERIAL_LN("Retrieving NTP date&time");
-    while (!timeClient.update())
-      timeClient.forceUpdate();
+    if (!timeClient.forceUpdate()) {
+      //active = false;
+      return;
+    }
 
     auto datetime = timeClient.getFormattedDate();
     SERIAL_V("Got NTP date&time: ");
@@ -57,6 +61,7 @@ public:
       auto timeStamp = datetime.substring(splitT + 1, datetime.length() - 1);
       ConfigurationBase::instance->telemetry.set_clock(dayStamp, timeStamp);
     }
+    active = false;
   }
 };
 

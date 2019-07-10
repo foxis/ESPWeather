@@ -54,6 +54,7 @@
 #define STATIC_IP 						"static_ip"
 #define STATIC_GATEWAY 				"static_gateway"
 #define STATIC_SUBNET 				"static_subnet"
+#define STATIC_DNS 						"static_dns"
 
 // PIN definitions
 #define DIVIDER_SELECTOR 			5
@@ -124,6 +125,7 @@ public:
 	IPAddress static_ip;
 	IPAddress static_gateway;
 	IPAddress static_subnet;
+	IPAddress static_dns;
 
 	// Station name
 	String myName;
@@ -214,6 +216,8 @@ public:
 			static_gateway.fromString(json[STATIC_GATEWAY].as<String>());
 		if (json.containsKey(STATIC_SUBNET))
 			static_subnet.fromString(json[STATIC_SUBNET].as<String>());
+		if (json.containsKey(STATIC_DNS))
+			static_dns.fromString(json[STATIC_DNS].as<String>());
 
 		if (json.containsKey(DEEPSLEEPTIMEOUT))
 			deepsleeptimeout = json[DEEPSLEEPTIMEOUT];
@@ -237,23 +241,14 @@ public:
 		if (json.containsKey(NTP_URL))
 			ntp_url = json[NTP_URL].as<String>();
 		if (json.containsKey(MQTT_LISTEN_NAMES)) {
-			JsonArray& ja = json[MQTT_LISTEN_NAMES];
-			JsonArray::iterator I = ja.begin();
-			while (I != ja.end()) {
-				mqtt_listen_names.push_back(*I);
-				++I;
-			}
+			for (auto & name : (JsonArray&)json[MQTT_LISTEN_NAMES])
+				mqtt_listen_names.push_back(name);
 		}
 
-		if (json.containsKey(NETWORKS)){
-			if (woke_up) {
-				JsonObject& jo = json[NETWORKS];
-				JsonObject::iterator I = jo.begin();
-				while (I != jo.end())
-				{
-					OTA.addAP(I->key, I->value);
-					++I;
-				}
+		if (json.containsKey(NETWORKS) && woke_up){
+			for (auto & network : (JsonObject&)json[NETWORKS]) {
+				if (strlen(network.key) > 0)
+					OTA.addAP(network.key, network.value);
 			}
 		} else
 		{
@@ -281,6 +276,7 @@ public:
 		json[STATIC_IP] = static_ip.toString();
 		json[STATIC_GATEWAY] = static_gateway.toString();
 		json[STATIC_SUBNET] = static_subnet.toString();
+		json[STATIC_DNS] = static_dns.toString();
 		json[DEEPSLEEPTIMEOUT] = deepsleeptimeout;
 		json[TIMEOUT] = timeout;
 		json[CANSLEEP] = can_sleep;
@@ -293,11 +289,8 @@ public:
 		json[NTP_URL] = ntp_url;
 
 		JsonArray& arr = json.createNestedArray(MQTT_LISTEN_NAMES);
-		std::vector<String>::iterator I = mqtt_listen_names.begin();
-		while (I != mqtt_listen_names.end()) {
-			arr.add(*I);
-			++I;
-		}
+		for (auto & name : mqtt_listen_names)
+			arr.add(name);
 
 		JsonObject& data = json.createNestedObject(NETWORKS);
 		OTA.eachAP([](const String& ssid, const String& pw, void * ja){

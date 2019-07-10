@@ -56,7 +56,18 @@ class SensorRTC : public SensorBase
     }
 
     virtual void set(const String & date, const String & time) {
-      rtc.adjust(DateTime(date.c_str(), time.c_str()));
+      String year = date.substring(0, 4);
+      String month = date.substring(5,7);
+      String day = date.substring(8, 10);
+      //SERIAL_LN(year);
+      //SERIAL_LN(month);
+      //SERIAL_LN(day);
+      const char* mn[] = {
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      };
+      String tmp = String(mn[month.toInt() - 1]) + " " + day + " " + year;
+      //SERIAL_LN(tmp);
+      rtc.adjust(DateTime(tmp.c_str(), time.c_str()));
     }
     bool init();
   };

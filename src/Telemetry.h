@@ -111,9 +111,9 @@ public:
 				}
 				obj.printTo(tmp);
 
-				lock.lock();
+				lock();
 				this->json = tmp;
-				lock.unlock();
+				unlock();
 			}
 		}
 	}
