@@ -14,8 +14,8 @@
 *  You should have received a copy of the GNU General Public License
 *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  **/
-#ifndef MY_SENSOR_BATTERY_H
-#define MY_SENSOR_BATTERY_H
+#ifndef MY_SENSOR_PHOTO_H
+#define MY_SENSOR_PHOTO_H
 
 #include <SensorBattery.h>
 

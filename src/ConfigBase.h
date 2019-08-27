@@ -18,20 +18,22 @@
 #define MY_CONFIG_BASE_H
 
 #if defined(ESP_WEATHER_VARIANT_EPAPER)
-#define ARDUINO_HOSTNAME "ESPWeather-epaper"
+#define ESP_WEATHER_HOSTNAME "ESPWeather-epaper"
 #elif defined(ESP_WEATHER_VARIANT_OLED)
-#define ARDUINO_HOSTNAME "ESPWeather-oled"
+#define ESP_WEATHER_HOSTNAME "ESPWeather-oled"
 #elif defined(ESP_WEATHER_VARIANT_PRO)
-#define ARDUINO_HOSTNAME "ESPWeather-Pro"
+#define ESP_WEATHER_HOSTNAME "ESPWeather-Pro"
 #else
 // ESP_WEATHER_VARIANT_HEADLESS
-#define ARDUINO_HOSTNAME "ESPWeather"
+#define ESP_WEATHER_HOSTNAME "ESPWeather"
 #endif
 
 #if defined(ESP_WEATHER_VARIANT_UI)
-#undef ARDUINO_HOSTNAME
-#define ARDUINO_HOSTNAME "ESPWeather-UI"
+#undef ESP_WEATHER_HOSTNAME
+#define ESP_WEATHER_HOSTNAME "ESPWeather-UI"
 #endif
+
+#define ESP_WEATHER_VERSION			"1.3"
 
 // Config parameters definitions
 #define CONFIG_FILE 					"/config.json"
@@ -146,7 +148,7 @@ public:
 
 
 	ConfigurationBase(DisplayBase& display, TelemetryBase& telemetry) :
-		OTA(ARDUINO_HOSTNAME),
+		OTA(ESP_WEATHER_HOSTNAME),
 		display(display),
 		telemetry(telemetry)
 	{
@@ -159,9 +161,9 @@ public:
 		allowopen = false;
 		wifi_enabled = true;
 		is_static = false;
-		woke_up = ESP.getResetInfoPtr()->reason != REASON_DEFAULT_RST &&
-							ESP.getResetInfoPtr()->reason != REASON_SOFT_RESTART &&
-							ESP.getResetInfoPtr()->reason != REASON_EXT_SYS_RST;
+		woke_up = ESP.getResetInfoPtr()->reason != REASON_DEFAULT_RST
+				  && ESP.getResetInfoPtr()->reason != REASON_SOFT_RESTART
+				  && ESP.getResetInfoPtr()->reason != REASON_EXT_SYS_RST;
 	}
 
 	void setMyName(const String& name)

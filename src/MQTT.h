@@ -170,7 +170,7 @@ public:
 			return;
 		}
 
-		String clientName = ARDUINO_HOSTNAME + String("-") + config.myName;
+		String clientName = ESP_WEATHER_HOSTNAME + String("-") + config.myName;
 		if (client.connect(clientName.c_str(), config.mqtt_user.c_str(), config.mqtt_password.c_str())) {
 			// Once connected, subscribe to config topics
 			client.subscribe((config.myName + "/apadd").c_str());

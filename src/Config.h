@@ -95,6 +95,20 @@ public:
 				request->send(200, "text/plain", String("OK"));
 				ConfigurationBase::instance->restart();
 			});
+			server.on("/info", HTTP_GET, [](AsyncWebServerRequest *request) {
+				ConfigurationBase::instance->keepalive();
+				StaticJsonBuffer<1024> buf;
+				JsonObject &obj = buf.createObject();
+				obj["Build"] = __DATE__;
+				obj["Version"] = ESP_WEATHER_VERSION;
+				obj["Hostname"] = ESP_WEATHER_HOSTNAME;
+				obj["MAC"] = WiFi.macAddress();
+				obj["Heap"] = ESP.getFreeHeap();
+				String info;
+				obj.printTo(info);
+
+				request->send(200, "application/json", info);
+			});
 			server.on("/readings", HTTP_GET, [](AsyncWebServerRequest *request) {
 				ConfigurationBase::instance->keepalive();
 				ConfigurationBase::instance->telemetry.lock();
