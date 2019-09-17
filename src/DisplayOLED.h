@@ -72,6 +72,7 @@ public:
 
 	virtual void publish_status(const String& str)
 	{
+		SERIAL_LN(str);
 		displayLine(str.c_str(), 0);
 	}
 

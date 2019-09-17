@@ -72,6 +72,7 @@ public:
 			sensor->begin();
 
 		last_m1 = millis();
+		SERIAL_LN("Telemetry ok");
 	}
 
 	void discover() {

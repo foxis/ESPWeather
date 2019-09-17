@@ -99,6 +99,7 @@ public:
 			} else
 				MQTT::instance->handle_listen_stations(topic, str);
 		});
+		SERIAL_LN("MQTT ok");
 	}
 
 	void handle_listen_stations(const char * topic, const char * data) {

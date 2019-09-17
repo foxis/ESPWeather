@@ -37,6 +37,7 @@ public:
 	virtual void begin() {
 		DisplayOLED::begin();
 		logger.begin(9600);
+		SERIAL_LN("Serial output on I2C1 at 9600 baud");
 	}
 	virtual void end() {
 		DisplayOLED::end();

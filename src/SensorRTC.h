@@ -90,6 +90,7 @@ public:
         break;
       }
     active = rtc != NULL;
+    SERIAL_LN(active ? "RTC sensor found!" : "No RTC sensors");
   }
 
   virtual void loop(unsigned long now, sensor_map_t & sensor_map) {
