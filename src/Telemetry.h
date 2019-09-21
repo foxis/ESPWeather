@@ -62,6 +62,7 @@ public:
 	}
 
 	virtual void begin() {
+		Wire.begin(SDA0, SCL0);
 		_init = true;
 
 		#if defined(ESP_WEATHER_VARIANT_PRO)

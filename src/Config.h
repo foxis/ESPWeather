@@ -50,15 +50,14 @@ public:
 	}
 
 	void begin() {
-		SPIFFS.begin();
-		loadConfig();
-
-		Wire.begin(SDA0, SCL0);
 #if defined(ESP_WEATHER_VARIANT_PRO)
 		pinMode(POWER_PIN, OUTPUT);
 		digitalWrite(POWER_PIN, LOW);
 		Serial.begin(74880);
 #endif
+
+		SPIFFS.begin();
+		loadConfig();
 
 		SERIAL_LN("Power on, initializing...");
 

@@ -42,8 +42,12 @@ public:
 
 	void begin() {
 		if (config.mqtt_url.length() == 0 || config.mqtt_user.length() == 0
-				|| !config.wifi_enabled)
+			|| !config.wifi_enabled)
 			return;
+
+		config.OTA.onMessage([](const String& message, int line_nr) {
+			MQTT::instance->config.display.publish_status(message);
+		});
 
 		// Setup MqttClient
 		client.setServer(config.mqtt_url.c_str(), config.mqtt_port);
@@ -153,7 +157,7 @@ public:
 			}
 		} else {
 			if (config.telemetry._send) {
-				config.display.publish_status(config.woke_up ? "No Wifi" : "OTA / WebUI");
+				//config.display.publish_status(config.woke_up ? "No Wifi" : "OTA / WebUI");
 				config.display.publish_telemetry(config.myName, config.telemetry);
 				config.telemetry._send = false;
 			}

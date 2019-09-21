@@ -196,6 +196,7 @@
 				config.maxreadings = parseInt(validate_field($("#maxreadings"), checkInt, 3, 50));
 
 				// Due to some ESP module limitations, only one Wifi network is supported
+				config.networks = {};
 				config.networks[$("#ssid").val()] = $("#psk").val();
 				config.wifi = $("#wifi_enabled").prop("checked");
 				config.static = $("#static").prop("checked");

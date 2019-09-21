@@ -186,26 +186,26 @@ public:
 
 	bool loadConfig() {
 		File configFile = SPIFFS.open(CONFIG_FILE, "r");
-	  if (!configFile) {
-	    return false;
-	  }
+		if (!configFile) {
+			return false;
+		}
 
-	  size_t size = configFile.size();
-	  if (size > 1024) {
+		size_t size = configFile.size();
+		if (size > 1024) {
 			configFile.close();
-	    return false;
-	  }
+			return false;
+		}
 
 		StaticJsonBuffer<1024> jsonBuffer;
 		JsonObject &json = jsonBuffer.parseObject(configFile);
 
 		if (!json.success()) {
 			configFile.close();
-	    return false;
-	  }
+	    	return false;
+	  	}
 
 		if (json.containsKey(MY_NAME))
-	  	myName = json[MY_NAME].as<String>();
+	  		myName = json[MY_NAME].as<String>();
 		else
 		{
 			configFile.close();
@@ -263,18 +263,18 @@ public:
 		}
 
 		configFile.close();
-	  return true;
+	  	return true;
 	}
 
 	bool saveConfig() {
 		StaticJsonBuffer<1024> jsonBuffer;
 		File configFile = SPIFFS.open(CONFIG_FILE, "w");
-	  if (!configFile) {
+	  	if (!configFile) {
 			SPIFFS.format();
 			configFile = SPIFFS.open(CONFIG_FILE, "w");
 	    if (!configFile)
 				return false;
-	  }
+	  	}
 		JsonObject& json = jsonBuffer.createObject();
 		json[MY_NAME] = myName;
 		json[WIFI_ENABLED] = wifi_enabled;
@@ -303,10 +303,10 @@ public:
 			(*(JsonObject*)ja)[ssid] = pw;
 		}, (void*)&data);
 
-	  json.printTo(configFile);
+	  	json.printTo(configFile);
 
 		configFile.close();
-	  return true;
+	  	return true;
 	}
 
 	bool save_file(AsyncWebServerRequest *request, const String& fname, uint8_t * data, size_t len, size_t index, size_t total)
