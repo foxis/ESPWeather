@@ -105,15 +105,14 @@ class UserData:
                     else:
                         timestamp, station = row[:2]
                         row = dict(zip(self.header[2:], row[2:]))
-                        row['_timestamp'] = datetime.fromisoformat(timestamp)
 
                         if station not in self.stations:
                             self.add_station(station)
 
-                        for topic in self.stations[station].keys():
-                            value = row.get(topic, None)
-                            if value:
-                                self.stations[station][topic] += [value]
+                        for topic in self.topics:
+                            value = getattr(self, f'process_{topic}')(row.get(topic, None))
+                            self.stations[station][topic] += [value]
+                        self.stations[station]['_timestamp'] += [datetime.fromisoformat(timestamp)]
 
     def write_data(self, station):
         if self.file:
@@ -129,7 +128,8 @@ class UserData:
                     data['_timestamp'],
                     station
                 ] + [
-                    data[topic] for topic in self.topics
+                    isinstance(data[topic], datetime) and data[topic].strftime('%Y-%m-%dT%H:%M:%SZ') or data[topic]
+                    for topic in self.topics
                 ]
                 w.writerow(row)
 
