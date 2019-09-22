@@ -9,7 +9,9 @@ import copy
 import threading as thrd
 import tkinter as tk
 from tkinter import ttk
-import math
+import os
+import csv
+from itertools import zip_longest
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
@@ -55,20 +57,81 @@ class UserData:
     INT_TOPICS = 'events'
     TIMESTAMP_TOPICS = 'ntp,rtc'
 
-    def __init__(self, stations, topics=DEFAULT_TOPICS, file=None):
+    def __init__(self, client_name, username, password, server, port, stations, topics=DEFAULT_TOPICS, file=None):
         self.lock = thrd.Lock()
         self.topics = [i.strip() for i in topics.split(',')]
-        self.stations = {
-            i.strip(): {
-                i.strip(): []
-                for i in self.topics + ['_timestamp']
-            } for i in stations.split(',')
-        } if stations else {}
+        self.stations = {}
         self.connected = False
         self.last_connected = False
+        self.server = server
+        self.port = port
+        self.file = file
+        self.header = None
+
+        if stations:
+            for station in stations.split(','):
+                self.add_station(station)
+        self.populate_data()
+
         self.announce_listeners = Observer(lambda station: print(f'Announcement: {station}'))
-        self.readings_listeners = Observer(lambda station, topic, reading: None)
+        self.readings_listeners = Observer(lambda station, topic, reading, last: None)
         self.connection_listeners = Observer(lambda c, rc: print(f'Connected {rc}' if c else f'Disconnected {rc}'))
+
+        self.client = mqtt.Client(client_name, userdata=self)
+        self.client.username_pw_set(username, password)
+
+        self.client.on_message = self.on_message
+        self.client.on_connect = self.on_connect
+        self.client.on_disconnect = self.on_disconnect
+
+    def start(self):
+        self.client.connect(self.server, self.port)
+        self.client.loop_start()
+
+    def stop(self):
+        self.client.loop_stop()
+
+    def add_station(self, name):
+        self.stations[name.strip()] = {
+            i: [] for i in self.topics + ['_timestamp']
+        }
+
+    def populate_data(self):
+        if self.file and os.path.exists(self.file):
+            with open(self.file, newline='') as f:
+                for row in csv.reader(f):
+                    if not self.header:
+                        self.header = row
+                    else:
+                        timestamp, station = row[:2]
+                        row = dict(zip(self.header[2:], row[2:]))
+                        row['_timestamp'] = datetime.fromisoformat(timestamp)
+
+                        if station not in self.stations:
+                            self.add_station(station)
+
+                        for topic in self.stations[station].keys():
+                            value = row.get(topic, None)
+                            if value:
+                                self.stations[station][topic] += [value]
+
+    def write_data(self, station):
+        if self.file:
+            data = self.get_latest(station)
+            with open(self.file, 'a', newline='') as f:
+                w = csv.writer(f)
+                if not self.header:
+                    self.header = ['date', 'station']
+                    self.header += self.topics
+                    w.writerow(self.header)
+
+                row = [
+                    data['_timestamp'],
+                    station
+                ] + [
+                    data[topic] for topic in self.topics
+                ]
+                w.writerow(row)
 
     def on_connect(self, client, userdata, flags, rc):
         self.connection_listeners(True, rc)
@@ -87,13 +150,10 @@ class UserData:
         if message.topic == self.TOPIC_ANNOUNCE:
             with self.lock:
                 if data not in self.stations:
-                    self.stations[data] = {
-                        i.strip(): []
-                        for i in self.topics + ['_timestamp']
-                    }
+                    self.add_station(data)
                     for topic in self.topics:
                         client.subscribe(f'{data}/{topic}')
-                    self.announce_listeners(data)
+            self.announce_listeners(data)
             return
 
         station, topic = message.topic.split('/')
@@ -102,20 +162,34 @@ class UserData:
             self.stations[station][topic] += [data]
             now = datetime.now()
             max_len = max(len(i) for i in self.stations[station].values())
+
             if max_len > len(self.stations[station]['_timestamp']):
                 self.stations[station]['_timestamp'] += [now]
-        self.readings_listeners(station, topic, data)
+
+            last_reading = any((
+                len(set(len(self.stations[station][i]) for i in self.topics if len(i) > 0)) == 1,
+                len(set(len(self.stations[station][i]) for i in self.topics)) == 1,
+            ))
+
+        self.readings_listeners(station, topic, data, last_reading)
+        if last_reading:
+            self.write_data(station)
 
     def on_disconnect(self, client, userdata, rc):
         self.connection_listeners(False, rc)
 
     def get_latest(self, station):
         with self.lock:
-            station = copy.deepcopy(self.stations[station])
-            return {
-                k: v[-1:]
-                for k, v in station.items()
-            }
+            station = self.stations[station]
+            all = list(zip_longest(*station.values(), fillvalue='NA'))
+            if all:
+                return {
+                    k: v for k, v in zip(station.keys(), all[-1])
+                }
+            else:
+                return {
+                    k: [] for k in station.keys()
+                }
 
     def get(self, station):
         with self.lock:
@@ -180,7 +254,7 @@ class StationWidget(tk.Frame):
             self.topics[topic]['text'] = f'{data}'
         else:
             for topic, data in self.userdata.get_latest(self.station).items():
-                if topic in self.userdata.topics and data:
+                if topic in self.topics and data:
                     self.topics[topic]['text'] = f'{data}'
 
     @property
@@ -231,10 +305,6 @@ class WeatherMonitor(tk.Frame):
         self.stations = {}
         self.topics = {}
 
-        userdata.connection_listeners += self.on_connection
-        userdata.announce_listeners += self.on_announced
-        userdata.readings_listeners += self.on_reading
-
         self.statusbar = tk.Label(self, text="Waiting…", bd=1, relief=tk.SUNKEN, anchor=tk.W)
         self.statusbar.pack(side='bottom', fill='x')
 
@@ -251,11 +321,16 @@ class WeatherMonitor(tk.Frame):
 
         self.tabs.add(self.container, text='Stations')
 
-        for station in userdata.stations.keys():
+        stations = userdata.get_all()
+        for station in stations:
             self.add_station(station)
 
         for topic in userdata.topics:
             self.add_topic(topic)
+
+        userdata.connection_listeners += self.on_connection
+        userdata.announce_listeners += self.on_announced
+        userdata.readings_listeners += self.on_reading
 
     def add_station(self, station, widget=None):
         self.stations[station] = StationWidget(self.container, station, self.userdata) if not widget else widget
@@ -275,29 +350,20 @@ class WeatherMonitor(tk.Frame):
             self.add_station(station)
         self.stations[station].announced = True
 
-    def on_reading(self, station, topic, data):
+    def on_reading(self, station, topic, data, last):
         self.stations[station].update(topic, data)
         self.topics[topic].update(station, data)
 
 
-def main(client_name, username, password, server, port, stations):
-    userdata = UserData(stations)
-
-    client = mqtt.Client(client_name, userdata=userdata)
-    client.username_pw_set(username, password)
-
-    client.on_message = userdata.on_message
-    client.on_connect = userdata.on_connect
-    client.on_disconnect = userdata.on_disconnect
+def main(client_name, username, password, server, port, stations, file):
+    userdata = UserData(client_name, username, password, server, port, stations, file=file)
 
     root = tk.Tk()
-    WeatherMonitor(root, userdata).pack(side="top", fill="both", expand=True)
+    WeatherMonitor(root, userdata).pack(side="top", fill="both", expand=1)
 
-    client.connect(server, port)
-
-    client.loop_start()
+    userdata.start()
     root.mainloop()
-    client.loop_stop()
+    userdata.stop()
 
 
 if __name__ == '__main__':
@@ -314,6 +380,8 @@ if __name__ == '__main__':
                         help='MQTT Server Port')
     parser.add_argument('-s', '--stations', default=None,
                         help='Comma separated list of stations to monitor (default: None)')
+    parser.add_argument('-f', '--file', default=None,
+                        help='CSV filename of readings storage (default: None)')
     parser.add_argument('-v', '--verbose', const=True, default=False, action='store_const',
                         help='Verbose output to stdout')
     args = parser.parse_args()
@@ -324,5 +392,6 @@ if __name__ == '__main__':
         args.password,
         args.server,
         args.port,
-        args.stations
+        args.stations,
+        args.file,
     )
