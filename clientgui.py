@@ -22,23 +22,26 @@ class Observer:
             self.__iadd__(initial)
 
     def __call__(self, *args, **kwargs):
-        print('call')
         with self.lock:
             for observer in self.observers:
-                observer(*args, **kwargs)
+                try:
+                    observer(*args, **kwargs)
+                except Exception as e:
+                    print(f'Observer {observer} failed: {repr(e)}')
+                    raise
 
     def __iadd__(self, observer):
-        print('add', observer)
         if not hasattr(observer, '__call__'):
             raise TypeError('Must be callable')
 
         with self.lock:
             self.observers.add(observer)
+        return self
 
     def __isub__(self, observer):
-        print('sub', observer)
         with self.lock:
             self.observers.remove(observer)
+        return self
 
     def __contains__(self, observer):
         with self.lock:
@@ -48,24 +51,26 @@ class Observer:
 class UserData:
     TOPIC_ANNOUNCE = 'announce'
     DEFAULT_TOPICS = 'temperature,humidity,pressure,light,uv-index,events,ntp,battery'
+    FLOAT_TOPICS = 'temperature,humidity,pressure,light,uv-index,battery'
+    INT_TOPICS = 'events'
+    TIMESTAMP_TOPICS = 'ntp,rtc'
 
     def __init__(self, stations, topics=DEFAULT_TOPICS, file=None):
         self.lock = thrd.Lock()
+        self.topics = [i.strip() for i in topics.split(',')]
         self.stations = {
             i.strip(): {
                 i.strip(): []
-                for i in (topics + ',_timestamp').split(',')
+                for i in self.topics + ['_timestamp']
             } for i in stations.split(',')
         } if stations else {}
-        self.topics = [i.strip() for i in topics.split(',')]
         self.connected = False
         self.last_connected = False
-        self.announce_listeners = Observer(lambda station: print(f'Adding new station: {station}'))
+        self.announce_listeners = Observer(lambda station: print(f'Announcement: {station}'))
         self.readings_listeners = Observer(lambda station, topic, reading: None)
         self.connection_listeners = Observer(lambda c, rc: print(f'Connected {rc}' if c else f'Disconnected {rc}'))
 
     def on_connect(self, client, userdata, flags, rc):
-        print('connect')
         self.connection_listeners(True, rc)
         if rc == 0:
             client.subscribe(self.TOPIC_ANNOUNCE)
@@ -82,18 +87,24 @@ class UserData:
         if message.topic == self.TOPIC_ANNOUNCE:
             with self.lock:
                 if data not in self.stations:
-                    self.stations[data] = {}
+                    self.stations[data] = {
+                        i.strip(): []
+                        for i in self.topics + ['_timestamp']
+                    }
+                    for topic in self.topics:
+                        client.subscribe(f'{data}/{topic}')
                     self.announce_listeners(data)
             return
 
         station, topic = message.topic.split('/')
-        try:
-            with self.lock:
-                self.stations[station][topic] = data
-                self.stations[station]['_timestamp'] = datetime.now()
-            self.readings_listeners(station, topic, data)
-        except Exception as e:
-            print('Exception occured: %s' % repr(e))
+        data = getattr(self, f'process_{topic}')(data)
+        with self.lock:
+            self.stations[station][topic] += [data]
+            now = datetime.now()
+            max_len = max(len(i) for i in self.stations[station].values())
+            if max_len > len(self.stations[station]['_timestamp']):
+                self.stations[station]['_timestamp'] += [now]
+        self.readings_listeners(station, topic, data)
 
     def on_disconnect(self, client, userdata, rc):
         self.connection_listeners(False, rc)
@@ -114,12 +125,43 @@ class UserData:
         with self.lock:
             return copy.deepcopy(self.stations)
 
+    def __getattr__(self, topic):
+        def process_float(x):
+            try:
+                return float(x)
+            except TypeError:
+                return 'NA'
+
+        def process_int(x):
+            try:
+                return int(x)
+            except TypeError:
+                return 'NA'
+
+        def process_timestamp(x):
+            try:
+                return datetime.strptime(x, '%Y-%m-%dT%H:%M:%SZ')
+            except TypeError:
+                return 'NA'
+
+        if topic.startswith('process_'):
+            for i in self.FLOAT_TOPICS.split(','):
+                if topic.endswith(i):
+                    return process_float
+            for i in self.INT_TOPICS.split(','):
+                if topic.endswith(i):
+                    return process_int
+            for i in self.TIMESTAMP_TOPICS.split(','):
+                if topic.endswith(i):
+                    return process_timestamp
+            return lambda x: x
+
 
 class StationWidget(tk.Frame):
     def __init__(self, master, name, userdata):
         tk.Frame.__init__(self, master, width=100, relief='sunken', bd=1, padx=3, pady=3)
         self.userdata = userdata
-
+        self.station = name
         self.title = tk.Label(self, text=name, font='bold')
         self.title.grid(row=0, columnspan=2)
 
@@ -131,12 +173,15 @@ class StationWidget(tk.Frame):
             tk.Label(self, text=t[0]).grid(row=idx+1, column=0, sticky='w')
             t[1].grid(row=idx+1, column=1, sticky='w')
 
+        self.update(None, None)
+
     def update(self, topic, data):
         if topic and data:
             self.topics[topic]['text'] = f'{data}'
         else:
-            for topic, data in self.userdata.get_latest(self.title).items():
-                self.topics[topic]['text'] = f'{data}'
+            for topic, data in self.userdata.get_latest(self.station).items():
+                if topic in self.userdata.topics and data:
+                    self.topics[topic]['text'] = f'{data}'
 
     @property
     def announced(self):
@@ -151,45 +196,31 @@ class GraphWidget(tk.Frame):
     def __init__(self, master, topic, userdata, *args, **kwargs):
         tk.Frame.__init__(self, master, *args, **kwargs)
         self.plot = plt.Figure(figsize=(6, 6), dpi=100)
+        self.axis = self.plot.add_subplot(111)
+
         canvas = FigureCanvasTkAgg(self.plot, self)
         canvas.get_tk_widget().pack(expand=1, fill='both')
 
         self.userdata = userdata
         self.topic = topic
         self.plots = None
-        self.recreate()
+        self.draw()
 
-    def recreate(self, plot=True):
-        default_plot = self.userdata.get_all()
-        N = len(default_plot)
-        self.plots = {
-            station: {
-                'x': default_plot[station]['_timestamp'],
-                'y': default_plot[station][self.topic],
-                'plot': self.plot.add_subplot(N, 1, i + 1)
-            }
-            for i, station in enumerate(self.userdata.stations)
-        }
-        self.plot.suptitle(self.topic)
-        for station in self.plots.values():
-            station['plot'].clear()
-            station['plot'].plot(
-                station['x'],
-                station['y']
-            )
+    def draw(self):
+        data = self.userdata.get_all()
+
+        self.axis.clear()
+        for station, val in data.items():
+            if len(val[self.topic]):
+                self.axis.plot(
+                    val['_timestamp'],
+                    val[self.topic],
+                    label=station,
+                )
+        self.axis.legend(loc='best')
 
     def update(self, station, data):
-        if station not in self.plots:
-            self.recreate()
-        else:
-            self.plots[station]['x'] += datetime.now()
-            self.plots[station]['y'] += data
-
-        self.plots[station]['plot'].clear()
-        self.plots[station]['plot'].plot(
-            self.plots[station]['x'],
-            self.plots[station]['y']
-        )
+        self.draw()
 
 
 class WeatherMonitor(tk.Frame):
@@ -197,6 +228,9 @@ class WeatherMonitor(tk.Frame):
         tk.Frame.__init__(self, master, *args, **kwargs)
         master.title('Weather Monitor')
         self.userdata = userdata
+        self.stations = {}
+        self.topics = {}
+
         userdata.connection_listeners += self.on_connection
         userdata.announce_listeners += self.on_announced
         userdata.readings_listeners += self.on_reading
@@ -207,41 +241,43 @@ class WeatherMonitor(tk.Frame):
         self.tabs = ttk.Notebook(self)
         self.tabs.pack(side='top', expand=1, fill='both')
 
-        container = tk.Frame(self.tabs)
-        self.tabs.add(container, text='Stations')
+        self.container = tk.Text(
+            self.tabs,
+            wrap="char",
+            borderwidth=0,
+            highlightthickness=0,
+            state="disabled"
+        )
 
-        self.stations = {
-            station: StationWidget(container, station, userdata)
-            for station in userdata.stations.keys()
-        }
+        self.tabs.add(self.container, text='Stations')
 
-        self.topics = {
-            topic: GraphWidget(self.tabs, topic, userdata)
-            for topic in userdata.topics
-        }
+        for station in userdata.stations.keys():
+            self.add_station(station)
 
-        for topic, w in self.topics.items():
-            self.tabs.add(w, text=topic)
+        for topic in userdata.topics:
+            self.add_topic(topic)
 
-        self.arrange()
+    def add_station(self, station, widget=None):
+        self.stations[station] = StationWidget(self.container, station, self.userdata) if not widget else widget
+        self.container.configure(state="normal")
+        self.container.window_create("end", window=self.stations[station])
+        self.container.configure(state="disabled")
+
+    def add_topic(self, topic, widget=None):
+        self.topics[topic] = GraphWidget(self.tabs, topic, self.userdata) if not widget else widget
+        self.tabs.add(self.topics[topic], text=topic)
 
     def on_connection(self, connected, rc):
         self.statusbar['text'] = f'Connected={connected} | {rc}'
 
     def on_announced(self, station):
         if station not in self.stations:
-            self.stations[station] = StationWidget(self, station, self.userdata)
-            self.arrange()
+            self.add_station(station)
         self.stations[station].announced = True
 
     def on_reading(self, station, topic, data):
         self.stations[station].update(topic, data)
         self.topics[topic].update(station, data)
-
-    def arrange(self):
-        M = math.ceil(len(self.stations) ** .5)
-        for i, w in enumerate(self.stations.values()):
-            w.grid(row=i//M, column=i % M)
 
 
 def main(client_name, username, password, server, port, stations):
