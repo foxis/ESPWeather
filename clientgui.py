@@ -167,7 +167,8 @@ class UserData:
                 self.stations[station]['_timestamp'] += [now]
 
             last_reading = any((
-                len(set(len(self.stations[station][i]) for i in self.topics if len(i) > 0)) == 1,
+                # len(set(len(self.stations[station][i]) for i in self.topics
+                #         if len(self.stations[station][i]) > 0 and i != 'NA')) == 1,
                 len(set(len(self.stations[station][i]) for i in self.topics)) == 1,
             ))
 
@@ -203,19 +204,19 @@ class UserData:
         def process_float(x):
             try:
                 return float(x)
-            except TypeError:
+            except ValueError:
                 return 'NA'
 
         def process_int(x):
             try:
                 return int(x)
-            except TypeError:
+            except ValueError:
                 return 'NA'
 
         def process_timestamp(x):
             try:
                 return datetime.strptime(x, '%Y-%m-%dT%H:%M:%SZ')
-            except TypeError:
+            except ValueError:
                 return 'NA'
 
         if topic.startswith('process_'):
@@ -285,7 +286,7 @@ class GraphWidget(tk.Frame):
 
         self.axis.clear()
         for station, val in data.items():
-            if len(val[self.topic]):
+            if len(val[self.topic]) == len(val['_timestamp']):
                 self.axis.plot(
                     val['_timestamp'],
                     val[self.topic],
