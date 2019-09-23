@@ -409,6 +409,9 @@ class WeatherMonitor(tk.Frame):
 
     def on_reading(self, station, topic, data, last):
         if station and topic:
+            if station not in self.stations:
+                self.add_station(station)
+
             self.stations[station].update(topic, data)
             if last:
                 self.topics[topic].update(station, data)
