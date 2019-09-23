@@ -55,13 +55,13 @@ class Observer:
 
 class UserData:
     TOPIC_ANNOUNCE = 'announce'
-    DEFAULT_TOPICS = 'temperature,humidity,pressure,light,uv-index,events,ntp,battery'
-    FLOAT_TOPICS = 'temperature,humidity,pressure,light,uv-index,battery'
-    INT_TOPICS = 'events'
-    TIMESTAMP_TOPICS = 'ntp,rtc'
+    DEFAULT_TOPICS = 'temperature,humidity,pressure,light,uv-index,events,ntp,battery'.split(',')
+    FLOAT_TOPICS = 'temperature,humidity,pressure,light,uv-index,battery'.split(',')
+    INT_TOPICS = 'events'.split(',')
+    TIMESTAMP_TOPICS = 'ntp,rtc'.split(',')
 
     def __init__(self, client_name, username, password, server, port,
-                 stations, topics=DEFAULT_TOPICS, file=None, verbose=False):
+                 stations, topics=','.join(DEFAULT_TOPICS), file=None, verbose=False):
         self.announce_listeners = Observer()  # (lambda station: print(f'Announcement: {station}'))
         self.readings_listeners = Observer()  # (lambda station, topic, reading, last: None)
         self.connection_listeners = Observer()  # (lambda c, rc: print(f'Connected {rc}' if c else f'Disconnected {rc}'))
@@ -123,7 +123,7 @@ class UserData:
                         for topic in self.topics:
                             value = getattr(self, f'process_{topic}')(row.get(topic, None))
                             self.stations[station][topic] += [value]
-                            if value != 'NA':
+                            if value:
                                 self.stations[station]['_topics'] |= {topic}
                         self.stations[station]['_timestamp'] += [datetime.fromisoformat(timestamp)]
                         self.debug(f'Loaded {station} = {self.get_latest(station)}')
@@ -181,23 +181,31 @@ class UserData:
             station = self.stations[station_name]
             now = datetime.now()
 
-            if not station['_timestamp'] or (now - station['_timestamp'][-1]).total_seconds() > .5:
+            num_entries = len(station['_timestamp'])
+            topics_covered = num_entries >= 2 and all(station[i][-1] is not None for i in station['_topics'])
+            should_create_new_row = (
+                num_entries == 0   # first entry ever
+                or (now - station['_timestamp'][-1]).total_seconds() > 15  # last entry was long ago
+                or (topics_covered and (now - station['_timestamp'][-1]).total_seconds() < 15)  # entry is part of a burst
+            )
+
+            if should_create_new_row:
                 for t in self.topics:
-                    station[t] += ['NA']
+                    station[t] += [None]
                 station['_timestamp'] += [now]
 
             if topic in self.topics:
                 station[topic][-1] = getattr(self, f'process_{topic}')(data)
                 station['_topics'] |= {topic}
 
-            last_reading = any((
-                all(station[i][-1] != 'NA' for i in self.topics),
-                len(station['_timestamp']) > 1 and all(station[i][-1] != 'NA' for i in station['_topics'])
-            ))
+            topics_covered = (
+                all(station[i][-1] is not None for i in self.topics)
+                or (num_entries >= 2 and all(station[i][-1] is not None for i in station['_topics']))
+            )
 
-        self.readings_listeners(station_name, topic, data, last_reading)
+        self.readings_listeners(station_name, topic, data, topics_covered)
 
-        if last_reading:
+        if topics_covered:
             self.debug(f'last log: {station_name} {station["_topics"]}')
             self.write_data(station_name)
 
@@ -208,7 +216,7 @@ class UserData:
         with self.lock:
             station = self.stations[station]
             data = {k: v for k, v in station.items() if k != '_topics'}
-            all = list(zip_longest(*data.values(), fillvalue='NA'))
+            all = list(zip_longest(*data.values(), fillvalue=None))
             if all:
                 return {
                     k: v for k, v in zip(data.keys(), all[-1])
@@ -227,35 +235,36 @@ class UserData:
             return copy.deepcopy(self.stations)
 
     def __getattr__(self, topic):
+        def value_validator(f):
+            def wrapper(x):
+                try:
+                    return f(x)
+                except (AttributeError, ValueError):
+                    return None
+            return wrapper
+
+        @value_validator
         def process_float(x):
-            try:
-                return float(x)
-            except ValueError:
-                return 'NA'
+            return float(x)
 
+        @value_validator
         def process_int(x):
-            try:
-                return int(x)
-            except ValueError:
-                return 'NA'
+            return int(x)
 
+        @value_validator
         def process_timestamp(x):
-            try:
-                return datetime.strptime(x, '%Y-%m-%dT%H:%M:%SZ')
-            except ValueError:
-                return 'NA'
+            return datetime.strptime(x, '%Y-%m-%dT%H:%M:%SZ')
 
         if topic.startswith('process_'):
-            for i in self.FLOAT_TOPICS.split(','):
-                if topic.endswith(i):
-                    return process_float
-            for i in self.INT_TOPICS.split(','):
-                if topic.endswith(i):
-                    return process_int
-            for i in self.TIMESTAMP_TOPICS.split(','):
-                if topic.endswith(i):
-                    return process_timestamp
-            return lambda x: x
+            topic = topic[8:]
+            if topic in self.FLOAT_TOPICS:
+                return process_float
+            elif topic in self.INT_TOPICS:
+                return process_int
+            elif topic in self.TIMESTAMP_TOPICS:
+                return process_timestamp
+            else:
+                return lambda x: x
 
 
 class StationWidget(tk.Frame):
@@ -278,11 +287,11 @@ class StationWidget(tk.Frame):
 
     def update(self, topic, data):
         if topic and data:
-            self.topics[topic]['text'] = f'{data}'
+            self.topics[topic]['text'] = f'{data}' if data else 'NA'
         else:
             for topic, data in self.userdata.get_latest(self.station).items():
                 if topic in self.topics and data:
-                    self.topics[topic]['text'] = f'{data}'
+                    self.topics[topic]['text'] = f'{data}' if data else 'NA'
 
     @property
     def announced(self):
@@ -299,8 +308,8 @@ class GraphWidget(tk.Frame):
         self.plot = plt.Figure(figsize=(6, 6), dpi=100)
         self.axis = self.plot.add_subplot(111)
 
-        canvas = FigureCanvasTkAgg(self.plot, self)
-        canvas.get_tk_widget().pack(expand=1, fill='both')
+        self.canvas = FigureCanvasTkAgg(self.plot, self)
+        self.canvas.get_tk_widget().pack(expand=1, fill='both')
 
         self.userdata = userdata
         self.topic = topic
@@ -312,10 +321,10 @@ class GraphWidget(tk.Frame):
 
         self.axis.clear()
         for station, val in data.items():
-            if len(val[self.topic]) == len(val['_timestamp']):
+            if len(val[self.topic]) == len(val['_timestamp']) and any(val[self.topic]):
                 self.axis.plot(
                     val['_timestamp'],
-                    val[self.topic],
+                    [i is None and float('nan') or i for i in val[self.topic]],
                     label=station,
                 )
         self.axis.legend(loc='best')
@@ -396,7 +405,8 @@ class WeatherMonitor(tk.Frame):
     def on_reading(self, station, topic, data, last):
         if station and topic:
             self.stations[station].update(topic, data)
-            self.topics[topic].update(station, data)
+            if last:
+                self.topics[topic].update(station, data)
         else:
             for station in self.stations.values():
                 station.update(None, None)
