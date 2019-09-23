@@ -212,6 +212,10 @@ class UserData:
     def on_disconnect(self, client, userdata, rc):
         self.connection_listeners(False, rc)
 
+    def count(self, station):
+        with self.lock:
+            return len(self.stations[station]['_timestamp'])
+
     def get_latest(self, station):
         with self.lock:
             station = self.stations[station]
@@ -288,6 +292,7 @@ class StationWidget(tk.Frame):
     def update(self, topic, data):
         if topic and data:
             self.topics[topic]['text'] = f'{data}' if data else 'NA'
+            self.title['text'] = f'{self.station}({self.userdata.count(self.station)})'
         else:
             for topic, data in self.userdata.get_latest(self.station).items():
                 if topic in self.topics and data:
