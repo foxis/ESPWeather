@@ -311,18 +311,38 @@ class StationWidget(tk.Frame):
         self.station = name
         self.title = tk.Label(self, text=name, font='bold')
         self.title.grid(row=0, columnspan=2)
+        self.last_updated_datetime = None
+        tk.Label(self, text='Last updated  ').grid(row=1, column=0, sticky='w')
+        self.last_updated = tk.Label(self, text='NA')
+        self.last_updated.grid(row=1, column=1, sticky='w')
 
         self.topics = {
             topic: tk.Label(self, text='NA')
             for topic in self.userdata.topics
         }
         for idx, t in enumerate(self.topics.items()):
-            tk.Label(self, text=t[0]).grid(row=idx+1, column=0, sticky='w')
-            t[1].grid(row=idx+1, column=1, sticky='w')
+            tk.Label(self, text=t[0]).grid(row=idx+2, column=0, sticky='w')
+            t[1].grid(row=idx+2, column=1, sticky='w')
 
         self.update(None, None)
 
+    def human_readable(self, span):
+        if span is None:
+            return 'now'
+        ago = [f'{i[0]} {i[1]}' for i in (
+            (span.days, 'd'),
+            (span.seconds // 3600, 'h'),
+            ((span.seconds % 3600) // 60, 'm'),
+            (span.seconds % 60, 's'),
+        ) if i[0]][:2]
+        if ago:
+            return ', '.join(ago)
+        else:
+            return 'now'
+
     def update(self, topic, data):
+        self.last_updated_datetime = datetime.now()
+
         if topic and data:
             self.topics[topic]['text'] = f'{data}' if data else 'NA'
             self.title['text'] = f'{self.station}({self.userdata.count(self.station)})'
@@ -338,6 +358,13 @@ class StationWidget(tk.Frame):
     @announced.setter
     def announced(self, value):
         pass
+
+    def tick(self):
+        if self.last_updated_datetime:
+            span = datetime.now() - self.last_updated_datetime
+        else:
+            span = None
+        self.last_updated['text'] = self.human_readable(span)
 
 
 class GraphWidget(tk.Frame):
@@ -369,6 +396,10 @@ class GraphWidget(tk.Frame):
 
     def update(self, station, data):
         self.draw()
+
+    def tick(self):
+        # self.draw()
+        pass
 
 
 class WeatherMonitor(tk.Frame):
@@ -413,6 +444,8 @@ class WeatherMonitor(tk.Frame):
         userdata.readings_listeners += self.on_reading
         userdata.debug += self.debug
 
+        self.tick()
+
     def info(self, msg):
         self.log.insert(0, f'{datetime.now()} INFO: {msg}')
 
@@ -453,6 +486,13 @@ class WeatherMonitor(tk.Frame):
                 station.update(None, None)
             for topic in self.topics.values():
                 topic.update(None, None)
+
+    def tick(self):
+        for station in self.stations.values():
+            station.tick()
+        for topic in self.topics.values():
+            topic.tick()
+        self.master.after(1000, self.tick)
 
 
 class WeatherMonitorGUI:
