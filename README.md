@@ -1,4 +1,4 @@
-> *!!!IMPORTANT!!!* This repository is being discontinued. All the development is being moved to https://github.com/itohio/ESPReflow.
+> *!!!IMPORTANT!!!* This repository is being discontinued. All the development is being moved to https://github.com/itohio/ESPWeather.
 
 
 
