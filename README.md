@@ -1,3 +1,8 @@
+> *!!!IMPORTANT!!!* This repository is being discontinued. All the development is being moved to https://github.com/itohio/ESPReflow.
+
+
+
+
 ![Invent This, Invent That](schematics/IT2-logo.png)
 
 # ESPWeather
